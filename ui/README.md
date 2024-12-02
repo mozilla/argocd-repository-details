@@ -1,0 +1,1 @@
+# argocd-repository-details
