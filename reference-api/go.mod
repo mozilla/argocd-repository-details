@@ -1,4 +1,4 @@
-module github.com/dlactin/argocd-repository-details/reference-api
+module github.com/mozilla/argocd-repository-details/reference-api
 
 go 1.22.3
 
@@ -13,4 +13,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/dlactin/argocd-repository-details/reference-api/sources/github => ./sources/github
+replace github.com/mozilla/argocd-repository-details/reference-api/sources/github => ./sources/github

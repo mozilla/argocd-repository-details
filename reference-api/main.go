@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/dlactin/argocd-repository-details/reference-api/sources/github"
+	"github.com/mozilla/argocd-repository-details/reference-api/sources/github"
 )
 
 func main() {
