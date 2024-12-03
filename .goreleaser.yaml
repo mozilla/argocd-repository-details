@@ -1,0 +1,100 @@
+# The lines below are called `modelines`. See `:help modeline`
+# yaml-language-server: $schema=https://raw.githubusercontent.com/goreleaser/goreleaser/v2.3.2/www/docs/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+# Modeled after https://github.com/argoproj-labs/argocd-ephemeral-access/blob/main/.goreleaser.yaml
+
+project_name: argocd-repository-details
+version: 2
+
+before:
+  hooks:
+    - cd reference-api && go mod tidy
+    - cd reference-api && go mod download
+    - make build-ui
+    - rm -rf dist
+
+builds:
+  - id: reference-api
+    dir: ./reference-api # Set working directory for the build
+    main: . # Main package is in the current working directory
+    binary: reference-api
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -v
+    goos:
+      - linux
+      - windows
+      - darwin
+    ldflags:
+      - -X github.com/mozilla/argocd-repository-details/reference-api/common.version={{ .Version }}
+      - -X github.com/mozilla/argocd-repository-details/reference-api/common.buildDate={{ .Date }}
+      - -extldflags="-static"
+
+archives:
+  - id: binary
+    format: tar.gz
+    builds:
+      - "repository-details"
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: ui-extension
+    format: gz
+    name_template: extension.tar
+    meta: true
+    files:
+    - src: ui/extension.tar
+      strip_parent: true
+
+checksum:
+  name_template: 'extension_checksums.txt'
+  algorithm: sha256
+
+release:
+  prerelease: auto
+  draft: false
+  extra_files:
+    - glob: ./install.yaml
+  header: |
+    ## argocd-repository-details
+    {{ .Date }}
+
+    ### Docker images
+
+    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api:{{ .Tag }}
+    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api:latest
+
+changelog:
+  use:
+    github
+  sort: asc
+  abbrev: 0
+  groups: # Regex use RE2 syntax as defined here: https://github.com/google/re2/wiki/Syntax.
+    - title: 'Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    - title: 'Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 300
+    - title: 'Dependency updates'
+      regexp: '^.*?(feat|fix|chore)\(deps?.+\)!?:.+$'
+      order: 400
+    - title: 'Other work'
+      order: 999
+  filters:
+    exclude:
+      - '^test:'
+      - '^.*?Bump(\([[:word:]]+\))?.+$'

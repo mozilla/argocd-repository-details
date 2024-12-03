@@ -12,8 +12,8 @@ endif
 GIT_TAG:=$(if $(GIT_TAG),$(GIT_TAG),$(shell if [ -z "`git status --porcelain`" ]; then git describe --exact-match --tags HEAD 2>/dev/null; fi))
 
 # docker image publishing options
-IMAGE_NAMESPACE?=argoproj-labs
-IMAGE_NAME?=${IMAGE_NAMESPACE}/argocd-ephemeral-access
+IMAGE_NAMESPACE?=us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images
+IMAGE_NAME?=${IMAGE_NAMESPACE}/reference-api
 
 ifneq (${GIT_TAG},)
 IMAGE_TAG=${GIT_TAG}
@@ -56,10 +56,34 @@ all: build
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+##@ Development
+
+.PHONY: fmt
+fmt: ## Run go fmt against code.
+	cd reference-api && go fmt .
+
+.PHONY: vet
+vet: ## Run go vet against code.
+	cd reference-api && go vet .
+
+##@ Lint
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint linter.
+	cd reference-api && $(GOLANGCI_LINT) run
+
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes.
+	cd reference-api && $(GOLANGCI_LINT) run --fix
+
+
 ##@ Build
 
 .PHONY: build
-build: build-ui  ## Build the UI extension
+build: build-ui build-go ## Build the UI extension and the reference-api binary
+
+.PHONY: build-go
+build-go: fmt vet ## Build the ephemeral-access binary.
+	cd reference-api && go build -o bin/reference-api .
 
 .PHONY: clean-ui
 clean-ui: ## delete the extension.tar file.
@@ -69,3 +93,51 @@ clean-ui: ## delete the extension.tar file.
 build-ui: clean-ui ## build the Argo CD UI extension creating the ui/extension.tar file.
 	yarn --cwd ${UI_DIR} install
 	yarn --cwd ${UI_DIR} build
+
+.PHONY: goreleaser-build-local
+goreleaser-build-local: goreleaser ## Run goreleaser build locally. Use to validate the goreleaser configuration.
+	$(GORELEASER) build --snapshot --clean --single-target --verbose
+
+##@ Dependencies
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+## Tool Binaries
+KUBECTL ?= kubectl
+KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+MOCKERY ?= $(LOCALBIN)/mockery-$(MOCKERY_VERSION)
+GORELEASER ?= $(LOCALBIN)/goreleaser-$(GORELEASER_VERSION)
+
+## Tool Versions
+KUSTOMIZE_VERSION ?= v5.5.0
+GOLANGCI_LINT_VERSION ?= v1.57.2
+MOCKERY_VERSION ?= v2.45.0
+GORELEASER_VERSION ?= v2.3.2
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: goreleaser
+goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.
+$(GORELEASER): $(LOCALBIN)
+	$(call go-install-tool,$(GORELEASER),github.com/goreleaser/goreleaser/v2,$(GORELEASER_VERSION))
+
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary (ideally with version)
+# $2 - package url which can be installed
+# $3 - specific version of package
+define go-install-tool
+@[ -f $(1) ] || { \
+set -e; \
+package=$(2)@$(3) ;\
+echo "Downloading $${package}" ;\
+GOBIN=$(LOCALBIN) go install $${package} ;\
+mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
+}
+endef
