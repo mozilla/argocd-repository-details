@@ -21,16 +21,6 @@ var (
 	privateKeyPath = os.Getenv("GITHUB_PRIVATE_KEY_PATH") // Path to the private key file
 )
 
-// Release represents a GitHub release
-type Release struct {
-	TagName     string `json:"tag_name"`
-	Body        string `json:"body"`
-	PublishedAt string `json:"published_at"`
-	Author      struct {
-		Login string `json:"login"`
-	} `json:"author"`
-}
-
 // ErrorResponse represents an error message
 type ErrorResponse struct {
 	Error string `json:"error"`

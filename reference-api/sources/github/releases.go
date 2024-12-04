@@ -7,6 +7,16 @@ import (
 	"net/http"
 )
 
+// Release represents a GitHub release
+type Release struct {
+	TagName     string `json:"tag_name"`
+	URL         string `json:"html_url"`
+	Body        string `json:"body"`
+	PublishedAt string `json:"published_at"`
+	Author      struct {
+		Login string `json:"login"`
+	} `json:"author"`
+}
 type MergedReleases struct {
 	Latest  *Release `json:"latest"`
 	Current *Release `json:"current"`

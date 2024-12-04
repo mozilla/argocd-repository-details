@@ -9,9 +9,16 @@ import (
 
 type Commit struct {
 	SHA    string `json:"sha"`
+	URL    string `json:"html_url"`
 	Commit struct {
 		Message string `json:"message"`
+		Author  struct {
+			Date string `json:"date"`
+		} `json:"author"`
 	} `json:"commit"`
+	Author struct {
+		Login string `json:"login"`
+	} `json:"author"`
 }
 
 type MergedCommits struct {
