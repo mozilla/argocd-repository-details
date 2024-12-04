@@ -106,22 +106,25 @@ func FetchLatestCommit(repo, accessToken string) (*Commit, error) {
 }
 
 // FetchCommits fetches both the latest commit and the one matching the Git reference (gitRef)
-func FetchCommits(repo, accessToken, gitRef string) (*MergedCommits, error) {
+func FetchCommits(repo, accessToken, gitRef string) (*StandardizedOutput, error) {
 	// Fetch the current commit
 	currentCommit, err := FetchCommit(repo, accessToken, gitRef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch the current commit: %w", err)
+		log.Printf("Error fetching current commit: %v", err)
+		currentCommit = nil // Allow partial results
 	}
 
 	// Fetch the latest commit
 	latestCommit, err := FetchLatestCommit(repo, accessToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch the latest commit: %w", err)
+		log.Printf("Error fetching latest commit: %v", err)
+		latestCommit = nil // Allow partial results
 	}
 
-	return &MergedCommits{
-		Latest:  latestCommit,
-		Current: currentCommit,
+	// Standardize the commit response
+	return &StandardizedOutput{
+		Latest:  StandardizeCommit(latestCommit),
+		Current: StandardizeCommit(currentCommit),
 	}, nil
 }
 

@@ -22,8 +22,7 @@ type MergedReleases struct {
 	Current *Release `json:"current"`
 }
 
-// FetchReleases fetches the latest release and the one matching the Git reference (gitRef) from GitHub
-func FetchReleases(repo, accessToken, gitRef string) (*MergedReleases, error) {
+func FetchReleases(repo, accessToken, gitRef string) (*StandardizedOutput, error) {
 	apiURL := fmt.Sprintf("%s/repos/%s/releases", githubAPIURL, repo)
 
 	// Create the request
@@ -77,10 +76,10 @@ func FetchReleases(repo, accessToken, gitRef string) (*MergedReleases, error) {
 		}
 	}
 
-	// Return the merged object
-	return &MergedReleases{
-		Latest:  latestRelease,
-		Current: matchingRelease,
+	// Normalize the releases
+	return &StandardizedOutput{
+		Latest:  StandardizeRelease(latestRelease),
+		Current: StandardizeRelease(matchingRelease),
 	}, nil
 }
 
