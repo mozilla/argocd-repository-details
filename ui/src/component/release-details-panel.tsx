@@ -13,7 +13,7 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const applicationNamespace = application?.spec?.destination?.namespace || "";
+  const applicationNamespace = application?.metadata?.namespace || "";
   const applicationName = application?.metadata?.name || "";
   const project = application?.spec?.project || "";
   const images = application?.status?.summary?.images || "";
@@ -21,9 +21,6 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
 
   useEffect(() => {
     if (!application) return;
-    // static values used for testing
-    //const repo = "mozilla-services/autopush-rs";
-    //const gitRef = "1.72.0";
 
     // We are checking the application repository for a gitRef that matches the imageTag
     const { appRepository, imageTag } = getAppDetails(images, info);
@@ -41,12 +38,12 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
         }
 
         const response = await fetch(
-          `/extensions/repository-details/api/releases?repo=${appRepository}&gitRef=${imageTag}`,
+          `/extensions/repository-details/api/references?repo=${appRepository}&gitRef=${imageTag}`,
           { headers: getHeaders({ applicationName, applicationNamespace, project }) }
         );
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch release info: ${response.statusText}`);
+          throw new Error(`Failed to fetch release info for ${imageTag} tag from ${appRepository} git repository`);
         }
 
         const data = await response.json();
@@ -84,35 +81,74 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
           <div className="white-box__details">
             <p>CURRENT RELEASE</p>
             <div className="row white-box__details-row">
-              <div className="columns small-3">TAG</div>
-              <div className="columns small-9">{releaseInfo.current.tag_name || "N/A"}</div>
+              <div className="columns small-3">REF</div>
+              <div className="columns small-9">
+              {releaseInfo.current?.html_url ? (
+                <a
+                  href={releaseInfo.current.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: "none", color: "#007bff" }} // Optional: Add link styling
+                >
+                  {releaseInfo.current?.tag_name
+                    ? releaseInfo.current.tag_name
+                    : releaseInfo.current?.sha
+                    ? releaseInfo.current.sha.slice(0, 7)
+                    : "N/A"}
+                </a>
+              ) : (
+                releaseInfo.current?.tag_name
+                  ? releaseInfo.current.tag_name
+                  : releaseInfo.current?.sha
+                  ? releaseInfo.current.sha.slice(0, 7)
+                  : "N/A"
+              )}
+              </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">DESCRIPTION</div>
               <div className="columns small-9">
-                {releaseInfo.current.body ? (
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
-                      h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
-                      h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
-                      h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
-                    }}
-                  >
-                    {releaseInfo.current.body}
-                  </ReactMarkdown>
-                ) : (
-                  "No description available"
-                )}
+              {releaseInfo.current.body ? (
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
+                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
+                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
+                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
+                  }}
+                >
+                  {releaseInfo.current.body}
+                </ReactMarkdown>
+              ) : releaseInfo.current?.commit?.message ? (
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
+                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
+                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
+                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
+                  }}
+                >
+                  {releaseInfo.current.commit.message}
+                </ReactMarkdown>
+              ) : (
+                "No description available"
+              )}
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">PUBLISHED AT</div>
-              <div className="columns small-9">{releaseInfo.current.published_at || "N/A"}</div>
+              <div className="columns small-9">
+              {releaseInfo.current?.published_at
+                  ? releaseInfo.current.published_at
+                  : releaseInfo.current?.commit?.author?.date
+                  ? releaseInfo.current?.commit?.author.date
+                  : "N/A"
+              }
+              </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">AUTHOR</div>
-              <div className="columns small-9">{releaseInfo.current.author?.login || "Unknown"}</div>
+              <div className="columns small-9">{releaseInfo.current.author?.login || "Unknown, not working"}</div>
             </div>
           </div>
         </div>
@@ -124,31 +160,70 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
           <div className="white-box__details">
             <p>LATEST RELEASE</p>
             <div className="row white-box__details-row">
-              <div className="columns small-3">TAG</div>
-              <div className="columns small-9">{releaseInfo.latest.tag_name || "N/A"}</div>
+              <div className="columns small-3">REF</div>
+              <div className="columns small-9">
+              {releaseInfo.latest?.html_url ? (
+                <a
+                  href={releaseInfo.latest.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: "none", color: "#007bff" }} // Optional: Add link styling
+                >
+                  {releaseInfo.latest?.tag_name
+                    ? releaseInfo.latest.tag_name
+                    : releaseInfo.latest?.sha
+                    ? releaseInfo.latest.sha.slice(0, 7)
+                    : "N/A"}
+                </a>
+              ) : (
+                releaseInfo.latest?.tag_name
+                  ? releaseInfo.latest.tag_name
+                  : releaseInfo.latest?.sha
+                  ? releaseInfo.latest.sha.slice(0, 7)
+                  : "N/A"
+              )}
+              </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">DESCRIPTION</div>
               <div className="columns small-9">
-                {releaseInfo.latest.body ? (
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
-                      h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
-                      h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
-                      h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
-                    }}
-                  >
-                    {releaseInfo.latest.body}
-                  </ReactMarkdown>
-                ) : (
-                  "No description available"
-                )}
+              {releaseInfo.latest.body ? (
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
+                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
+                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
+                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
+                  }}
+                >
+                  {releaseInfo.latest.body}
+                </ReactMarkdown>
+              ) : releaseInfo.latest?.commit?.message ? (
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
+                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
+                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
+                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
+                  }}
+                >
+                  {releaseInfo.latest.commit.message}
+                </ReactMarkdown>
+              ) : (
+                "No description available"
+              )}
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">PUBLISHED AT</div>
-              <div className="columns small-9">{releaseInfo.latest.published_at || "N/A"}</div>
+              <div className="columns small-9">
+              {releaseInfo.latest?.published_at
+                  ? releaseInfo.latest.published_at
+                  : releaseInfo.latest?.commit?.author?.date
+                  ? releaseInfo.latest?.commit?.author.date
+                  : "N/A"
+              }
+              </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">AUTHOR</div>

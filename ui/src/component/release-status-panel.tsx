@@ -14,19 +14,24 @@ export const ReleaseStatusPanel = ({ application, openFlyout }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const applicationNamespace = application?.spec?.destination?.namespace || "";
+  const applicationNamespace = application?.metadata?.namespace || "";
   const applicationName = application?.metadata?.name || "";
   const project = application?.spec?.project || "";
   const images = application?.status?.summary?.images || "";
   const info = application?.spec?.info || "";
-  // const spec = application || "";
-
 
   useEffect(() => {
     // We are checking the application repository for a gitRef that matches the imageTag
     const { appRepository, imageTag } = getAppDetails(images, info);
 
-    console.info(appRepository, imageTag)
+    // Check for missing appRepository or imageTag
+    if (!appRepository || !imageTag) {
+      setError(
+        `Missing required fields: ${!appRepository ? "Application Repository" : ""} ${!appRepository && !imageTag ? "and" : ""} ${!imageTag ? "Image Tag" : ""}.`
+      );
+      setLoading(false);
+      return;
+    }
 
     const fetchReleaseInfo = async () => {
       const cacheKey = `${appRepository}-${imageTag}`;
@@ -45,7 +50,7 @@ export const ReleaseStatusPanel = ({ application, openFlyout }) => {
           { headers: getHeaders({ applicationName, applicationNamespace, project }) }
         );
         if (!response.ok) {
-          throw new Error(`Failed to fetch release info: ${response.statusText}`);
+          throw new Error(`Failed to fetch release info for ${imageTag} tag from ${appRepository} git repository`);
         }
         const data = await response.json();
 
@@ -66,18 +71,61 @@ export const ReleaseStatusPanel = ({ application, openFlyout }) => {
     return () => clearTimeout(timeoutId);
   }, [application, applicationNamespace, applicationName, project]);
 
+  console.info("Release Info: ", releaseInfo)
+
+  const renderStatusPanel = (message, color, messageStyle = {}) => (
+    <div
+      key="status-panel"
+      qe-id="status-panel"
+      className="application-status-panel__item"
+      style={{
+        fontSize: "12px",
+        fontWeight: 600,
+        color: color || ARGO_GRAY6_COLOR,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        marginBottom: "0.5em",
+      }}
+    >
+      <label
+        style={{
+          fontSize: "12px",
+          fontWeight: 600,
+          color: ARGO_GRAY6_COLOR,
+          display: "flex",
+          alignItems: "center",
+          marginBottom: "0.5em",
+        }}
+      >
+        CURRENT RELEASE &nbsp;
+        {<HelpIcon title="The GitHub Release or Commit currently deployed by this ArgoCD Application. Click for more details and to see the latest release." />}
+      </label>
+      <div style={{ ...messageStyle }}>{message}</div>
+    </div>
+  );
+
   if (loading) {
-    return <div>Loading release information...</div>;
+    return renderStatusPanel("Loading release information...", ARGO_GRAY6_COLOR);
   }
 
   if (error) {
-    return <div>Error loading release information: {error}</div>;
+    return renderStatusPanel(
+      error,
+      ARGO_GRAY6_COLOR,
+      {
+        wordWrap: "break-word",
+        overflowWrap: "break-word",
+        maxWidth: "360px", // Set a max width for the container
+        whiteSpace: "normal", // Allow text to wrap
+      }
+    );
   }
 
   if (!releaseInfo) {
-    return <div>No release information available for this application.</div>;
+    return renderStatusPanel("No release information available for this application.", ARGO_GRAY6_COLOR);
   }
-  //padding: "10px",
+
   return (
     <div
       key="current-release-details-icon"
@@ -122,8 +170,14 @@ export const ReleaseStatusPanel = ({ application, openFlyout }) => {
           >
             {/* GitHub Icon */}
             <FontAwesomeIcon icon={faGithub} style={{ color: "#333", fontSize: "22px" }} />
-            {/* Tag Name */}
-            <span>{releaseInfo.current?.tag_name || "N/A"}</span>
+            {/* Tag Name or SHA */}
+            <span>
+              {releaseInfo.current?.tag_name
+                ? releaseInfo.current.tag_name
+                : releaseInfo.current?.sha
+                ? releaseInfo.current?.sha.slice(0, 7)
+                : "N/A"}
+            </span>
           </div>
         </div>
       </div>

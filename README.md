@@ -9,10 +9,19 @@ Argo CD application and assumes your infrastructure and application repositories
 
 ## Requirements
 
-The Repository Details extension requires your Argo CD Applications to have an Info annotation with
-the application repository. ex. ``
+The Repository Details extension requires your Argo CD Applications to have an Info block with
+the application repository and image repository set. This should match a specific image deployed by your Argo CD
+Application that you would like to track.
+ex.
+```
+    info:
+      - name: 'Image Repository'
+        value: 'us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api'
+      - name: 'Application Repository'
+        value: 'mozilla/application-repository-details'
+```
 
-It currently only support GitHub releases and Commits as information sources.
+It currently only supports GitHub releases and Commits as information sources.
 
 ## Installation
 
