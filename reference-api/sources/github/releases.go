@@ -87,6 +87,8 @@ func FetchReleases(repo, accessToken, gitRef string) (*StandardizedOutput, error
 func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 	repo := r.URL.Query().Get("repo")
 	gitRef := r.URL.Query().Get("gitRef")
+
+	// Validate query parameters
 	if repo == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing 'repo' query parameter"})
@@ -98,7 +100,7 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Initialize accessToken as empty for optional authentication
+	// Initialize accessToken for optional authentication
 	var accessToken string
 
 	// Check if private key path is defined for authentication
@@ -122,15 +124,23 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch the release by Git reference
+	// Fetch release information
 	releases, err := FetchReleases(repo, accessToken, gitRef)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error()})
+		log.Printf("Error fetching releases: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to fetch release information"})
 		return
 	}
 
-	// Respond with the matching release
-	w.Header().Set("Content-Type", "application/json")
+	// Check if a release was found
+	if releases == nil || (releases.Current == nil || releases.Latest == nil) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "No release found for the given repository and gitRef"})
+		return
+	}
+
+	// Return release details
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(releases)
 }

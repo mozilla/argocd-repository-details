@@ -11,6 +11,16 @@ type HandlerDeps struct {
 	ReleasesHandler http.HandlerFunc
 }
 
+type responseRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rec *responseRecorder) WriteHeader(code int) {
+	rec.statusCode = code
+	rec.ResponseWriter.WriteHeader(code)
+}
+
 // UnifiedHandler decides between using the CommitsHandler or ReleasesHandler based on gitRef format
 func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract query parameters
@@ -35,8 +45,15 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 	if commitHashRegex.MatchString(gitRef) {
 		// Handle as a commit
 		deps.CommitsHandler(w, r)
-	} else {
-		// Handle as a tag (release)
-		deps.ReleasesHandler(w, r)
+		return
+	}
+
+	// Attempt to handle as a release
+	releaseRecorder := &responseRecorder{ResponseWriter: w, statusCode: 200}
+	deps.ReleasesHandler(releaseRecorder, r)
+
+	// Fall back to commits if no release is found
+	if releaseRecorder.statusCode == http.StatusNotFound {
+		deps.CommitsHandler(w, r)
 	}
 }
