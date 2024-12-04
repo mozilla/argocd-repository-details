@@ -83,72 +83,58 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
             <div className="row white-box__details-row">
               <div className="columns small-3">REF</div>
               <div className="columns small-9">
-              {releaseInfo.current?.html_url ? (
+              {releaseInfo.current?.url ? (
                 <a
-                  href={releaseInfo.current.html_url}
+                  href={releaseInfo.current.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: "none", color: "#007bff" }} // Optional: Add link styling
                 >
-                  {releaseInfo.current?.tag_name
-                    ? releaseInfo.current.tag_name
-                    : releaseInfo.current?.sha
-                    ? releaseInfo.current.sha.slice(0, 7)
-                    : "N/A"}
+                  {
+                    releaseInfo.current?.ref
+                    ? /^[0-9a-f]{40}$/i.test(releaseInfo.current.ref) // Check if ref is a valid Git SHA
+                      ? releaseInfo.current.ref.slice(0, 7) // Shorten full SHA
+                      : releaseInfo.current.ref // Return tag or non-SHA ref as-is
+                    : "N/A"
+                    }
                 </a>
               ) : (
-                releaseInfo.current?.tag_name
-                  ? releaseInfo.current.tag_name
-                  : releaseInfo.current?.sha
-                  ? releaseInfo.current.sha.slice(0, 7)
-                  : "N/A"
+                    releaseInfo.current?.ref
+                    ? /^[0-9a-f]{40}$/i.test(releaseInfo.current.ref) // Check if ref is a valid Git SHA
+                      ? releaseInfo.current.ref.slice(0, 7) // Shorten full SHA
+                      : releaseInfo.current.ref // Return tag or non-SHA ref as-is
+                    : "N/A"
               )}
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">DESCRIPTION</div>
               <div className="columns small-9">
-              {releaseInfo.current.body ? (
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
-                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
-                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
-                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
-                  }}
-                >
-                  {releaseInfo.current.body}
-                </ReactMarkdown>
-              ) : releaseInfo.current?.commit?.message ? (
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
-                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
-                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
-                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
-                  }}
-                >
-                  {releaseInfo.current.commit.message}
-                </ReactMarkdown>
-              ) : (
-                "No description available"
-              )}
+              {releaseInfo.current.message ? (
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
+                      h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
+                      h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
+                      h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
+                    }}
+                  >
+                    {releaseInfo.current.message}
+                  </ReactMarkdown>
+                ) : (
+                  "No description available"
+                )}
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">PUBLISHED AT</div>
               <div className="columns small-9">
-              {releaseInfo.current?.published_at
-                  ? releaseInfo.current.published_at
-                  : releaseInfo.current?.commit?.author?.date
-                  ? releaseInfo.current?.commit?.author.date
-                  : "N/A"
-              }
+              {releaseInfo.current?.published_at || "N/A" }
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">AUTHOR</div>
-              <div className="columns small-9">{releaseInfo.current.author?.login || "Unknown, not working"}</div>
+              <div className="columns small-9">{releaseInfo.current?.author || "Unknown"}</div>
             </div>
           </div>
         </div>
@@ -162,72 +148,58 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
             <div className="row white-box__details-row">
               <div className="columns small-3">REF</div>
               <div className="columns small-9">
-              {releaseInfo.latest?.html_url ? (
+              {releaseInfo.latest?.url ? (
                 <a
-                  href={releaseInfo.latest.html_url}
+                  href={releaseInfo.latest.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: "none", color: "#007bff" }} // Optional: Add link styling
                 >
-                  {releaseInfo.latest?.tag_name
-                    ? releaseInfo.latest.tag_name
-                    : releaseInfo.latest?.sha
-                    ? releaseInfo.latest.sha.slice(0, 7)
-                    : "N/A"}
+                  {
+                  releaseInfo.latest?.ref
+                    ? /^[0-9a-f]{40}$/i.test(releaseInfo.latest.ref) // Check if ref is a valid Git SHA
+                      ? releaseInfo.latest.ref.slice(0, 7) // Shorten full SHA
+                      : releaseInfo.latest.ref // Return tag or non-SHA ref as-is
+                    : "N/A"
+                    }
                 </a>
               ) : (
-                releaseInfo.latest?.tag_name
-                  ? releaseInfo.latest.tag_name
-                  : releaseInfo.latest?.sha
-                  ? releaseInfo.latest.sha.slice(0, 7)
-                  : "N/A"
+                releaseInfo.latest?.ref
+                ? /^[0-9a-f]{40}$/i.test(releaseInfo.latest.ref) // Check if ref is a valid Git SHA
+                  ? releaseInfo.latest.ref.slice(0, 7) // Shorten full SHA
+                  : releaseInfo.latest.ref // Return tag or non-SHA ref as-is
+                : "N/A"
               )}
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">DESCRIPTION</div>
               <div className="columns small-9">
-              {releaseInfo.latest.body ? (
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
-                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
-                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
-                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
-                  }}
-                >
-                  {releaseInfo.latest.body}
-                </ReactMarkdown>
-              ) : releaseInfo.latest?.commit?.message ? (
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
-                    h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
-                    h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
-                    h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
-                  }}
-                >
-                  {releaseInfo.latest.commit.message}
-                </ReactMarkdown>
-              ) : (
-                "No description available"
-              )}
+              {releaseInfo.latest.message ? (
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
+                      h2: ({ children }) => <h4>{children}</h4>, // Shrink h2 to h4
+                      h3: ({ children }) => <h5>{children}</h5>, // Shrink h3 to h5
+                      h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
+                    }}
+                  >
+                    {releaseInfo.latest.message}
+                  </ReactMarkdown>
+                ) : (
+                  "No description available"
+                )}
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">PUBLISHED AT</div>
               <div className="columns small-9">
-              {releaseInfo.latest?.published_at
-                  ? releaseInfo.latest.published_at
-                  : releaseInfo.latest?.commit?.author?.date
-                  ? releaseInfo.latest?.commit?.author.date
-                  : "N/A"
-              }
+              { releaseInfo.latest?.published_at || "N/A" }
               </div>
             </div>
             <div className="row white-box__details-row">
               <div className="columns small-3">AUTHOR</div>
-              <div className="columns small-9">{releaseInfo.latest.author?.login || "Unknown"}</div>
+              <div className="columns small-9">{releaseInfo.latest?.author || "Unknown"}</div>
             </div>
           </div>
         </div>

@@ -172,11 +172,13 @@ export const ReleaseStatusPanel = ({ application, openFlyout }) => {
             <FontAwesomeIcon icon={faGithub} style={{ color: "#333", fontSize: "22px" }} />
             {/* Tag Name or SHA */}
             <span>
-              {releaseInfo.current?.tag_name
-                ? releaseInfo.current.tag_name
-                : releaseInfo.current?.sha
-                ? releaseInfo.current?.sha.slice(0, 7)
-                : "N/A"}
+              {
+                releaseInfo.current?.ref
+                  ? /^[0-9a-f]{40}$/i.test(releaseInfo.current.ref) // Check if ref is a valid Git SHA
+                    ? releaseInfo.current.ref.slice(0, 7) // Shorten full SHA
+                    : releaseInfo.current.ref // Return tag or non-SHA ref as-is
+                  : "N/A"
+              }
             </span>
           </div>
         </div>
