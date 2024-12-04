@@ -6,13 +6,14 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGithub } from '@fortawesome/free-brands-svg-icons';
 import { getHeaders } from "../shared/headers";
 import { getAppDetails } from "../shared/parse-app-info";
+import { ReleaseInfo } from "../shared/release-info";
 
 
 
 export const ReleaseStatusPanel = ({ application, openFlyout }) => {
-  const [releaseInfo, setReleaseInfo] = useState(null);
+  const [releaseInfo, setReleaseInfo] = useState<ReleaseInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const applicationNamespace = application?.metadata?.namespace || "";
   const applicationName = application?.metadata?.name || "";

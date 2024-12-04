@@ -3,13 +3,15 @@ import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { getHeaders } from "../shared/headers";
 import { getAppDetails } from "../shared/parse-app-info";
+import { ReleaseInfo } from "../shared/release-info";
+
 
 interface ReleaseDetailsPanelFlyoutProps {
   application: any;
 }
 
 export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutProps) => {
-  const [releaseInfo, setReleaseInfo] = useState(null);
+  const [releaseInfo, setReleaseInfo] = useState<ReleaseInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -110,7 +112,7 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
             <div className="row white-box__details-row">
               <div className="columns small-3">DESCRIPTION</div>
               <div className="columns small-9">
-              {releaseInfo.current.message ? (
+              {releaseInfo.current?.message ? (
                   <ReactMarkdown
                     components={{
                       h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
@@ -119,7 +121,7 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
                       h4: ({ children }) => <h6>{children}</h6>, // Shrink h4 to h6
                     }}
                   >
-                    {releaseInfo.current.message}
+                    {releaseInfo.current?.message}
                   </ReactMarkdown>
                 ) : (
                   "No description available"
@@ -175,7 +177,7 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
             <div className="row white-box__details-row">
               <div className="columns small-3">DESCRIPTION</div>
               <div className="columns small-9">
-              {releaseInfo.latest.message ? (
+              {releaseInfo.latest?.message ? (
                   <ReactMarkdown
                     components={{
                       h1: ({ children }) => <h3>{children}</h3>, // Shrink h1 to h3
