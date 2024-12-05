@@ -75,6 +75,11 @@ lint: golangci-lint ## Run golangci-lint linter.
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes.
 	cd reference-api && $(GOLANGCI_LINT) run --fix
 
+##@ Test
+.PHONY: test
+test: ## Run go tests
+	cd reference-api && go test .
+
 
 ##@ Build
 
