@@ -30,7 +30,8 @@ type ErrorResponse struct {
 func LoadPrivateKey(filePath string) (*rsa.PrivateKey, error) {
 	keyData, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("WARNING: Private key not found or could not be read (%s). Falling back to unauthenticated mode.", err.Error())
+		errMsg := "WARNING: Private key not found or could not be read (%s). Falling back to unauthenticated mode."
+		log.Printf(errMsg, err.Error())
 		return nil, nil // Continue without breaking
 	}
 
