@@ -67,7 +67,7 @@ func GetInstallationToken(jwtToken string, repo string) (string, error) {
 
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return "nil", err
+		return "", err
 	}
 	defer func() {
 		closeErr := resp.Body.Close()
