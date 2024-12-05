@@ -64,12 +64,16 @@ func GetInstallationToken(jwtToken string, repo string) (string, error) {
 	request.Header.Set("Authorization", "Bearer "+jwtToken)
 	request.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{}
-	resp, err := client.Do(request)
+	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return "", err
+		return "nil", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed to get installation ID, status: %s", resp.Status)
@@ -91,11 +95,16 @@ func GetInstallationToken(jwtToken string, repo string) (string, error) {
 	request.Header.Set("Authorization", "Bearer "+jwtToken)
 	request.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	resp, err = client.Do(request)
+	resp, err = http.DefaultClient.Do(request)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusCreated {
 		return "", fmt.Errorf("failed to create installation token, status: %s", resp.Status)
