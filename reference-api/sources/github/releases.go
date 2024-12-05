@@ -64,6 +64,7 @@ func FetchReleases(repo, accessToken, gitRef string) (*StandardizedOutput, error
 
 	// Iterate through releases to find the latest and the matching release
 	for _, release := range releases {
+		release := release
 		// Identify the latest release (first in the list, assuming GitHub returns them in descending order)
 		if latestRelease == nil {
 			latestRelease = &release
