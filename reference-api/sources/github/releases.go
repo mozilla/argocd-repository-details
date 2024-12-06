@@ -1,10 +1,13 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"strings"
+
+	"github.com/google/go-github/v67/github"
 )
 
 // Release represents a GitHub release
@@ -23,51 +26,27 @@ type MergedReleases struct {
 }
 
 func FetchReleases(repo, accessToken, gitRef string) (*StandardizedOutput, error) {
-	apiURL := fmt.Sprintf("%s/repos/%s/releases", githubAPIURL, repo)
-
-	// Create the request
-	req, err := http.NewRequest("GET", apiURL, nil)
+	owner, repoName, _ := strings.Cut(repo, "/")
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+	ctx := context.Background()
+	releases, _, err := client.Repositories.ListReleases(ctx, owner, repoName, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Add authorization header if accessToken is available
-	if accessToken != "" {
-		req.Header.Set("Authorization", "token "+accessToken)
-	}
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	// Execute the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status: %s", resp.Status)
-	}
-
-	// Decode the response body into a slice of Release
-	var releases []Release
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		return nil, err
-	}
-
-	var latestRelease *Release
-	var matchingRelease *Release
+	var latestRelease *github.RepositoryRelease
+	var matchingRelease *github.RepositoryRelease
 
 	// Iterate through releases to find the latest and the matching release
 	for _, release := range releases {
 		// Identify the latest release (first in the list, assuming GitHub returns them in descending order)
 		if latestRelease == nil {
-			latestRelease = &release
+			latestRelease = release
 		}
 
 		// Identify the release matching the gitRef
-		if release.TagName == gitRef {
-			matchingRelease = &release
+		if *release.TagName == gitRef {
+			matchingRelease = release
 		}
 
 		// If both latest and matching releases are found, exit the loop early
@@ -117,6 +96,7 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 				// Get installation token using the JWT
 				accessToken, err = GetInstallationToken(jwtToken, repo)
 				if err != nil {
+					log.Println(err)
 					log.Println("WARNING: Failed to get installation token. Falling back to unauthenticated mode.")
 					accessToken = ""
 				}

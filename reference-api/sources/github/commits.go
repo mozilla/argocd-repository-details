@@ -1,105 +1,45 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
+
+	"github.com/google/go-github/v67/github"
 )
 
-type Commit struct {
-	SHA    string `json:"sha"`
-	URL    string `json:"html_url"`
-	Commit struct {
-		Message string `json:"message"`
-		Author  struct {
-			Date string `json:"date"`
-		} `json:"author"`
-	} `json:"commit"`
-	Author struct {
-		Login string `json:"login"`
-	} `json:"author"`
-}
-
 type MergedCommits struct {
-	Latest  *Commit `json:"latest"`
-	Current *Commit `json:"current"`
+	Latest  *github.RepositoryCommit `json:"latest"`
+	Current *github.RepositoryCommit `json:"current"`
 }
 
 // FetchCommit fetches a specific commit by its Git reference
-func FetchCommit(repo, accessToken, gitRef string) (*Commit, error) {
-	apiURL := fmt.Sprintf("%s/repos/%s/commits/%s", githubAPIURL, repo, gitRef)
-
-	// Create the request
-	req, err := http.NewRequest("GET", apiURL, nil)
+func FetchCommit(repo, accessToken, gitRef string) (*github.RepositoryCommit, error) {
+	owner, repoName, _ := strings.Cut(repo, "/")
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+	ctx := context.Background()
+	commit, _, err := client.Repositories.GetCommit(ctx, owner, repoName, gitRef, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	// Add authorization header if accessToken is available
-	if accessToken != "" {
-		req.Header.Set("Authorization", "token "+accessToken)
-	}
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	// Execute the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status: %s", resp.Status)
-	}
-
-	// Decode the response body into a Commit
-	var commit Commit
-	if err := json.NewDecoder(resp.Body).Decode(&commit); err != nil {
-		return nil, err
-	}
-
-	return &commit, nil
+	return commit, nil
 }
 
 // FetchLatestCommit fetches the latest commit from the repository
-func FetchLatestCommit(repo, accessToken string) (*Commit, error) {
-	apiURL := fmt.Sprintf("%s/repos/%s/commits", githubAPIURL, repo)
-
-	// Create the request
-	req, err := http.NewRequest("GET", apiURL, nil)
+func FetchLatestCommit(repo, accessToken string) (*github.RepositoryCommit, error) {
+	owner, repoName, _ := strings.Cut(repo, "/")
+	client := github.NewClient(nil).WithAuthToken(accessToken)
+	ctx := context.Background()
+	commits, _, err := client.Repositories.ListCommits(ctx, owner, repoName, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Add authorization header if accessToken is available
-	if accessToken != "" {
-		req.Header.Set("Authorization", "token "+accessToken)
-	}
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	// Execute the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status: %s", resp.Status)
-	}
-
-	// Decode the response body into a slice of Commit
-	var commits []Commit
-	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
-		return nil, err
-	}
-
-	// Return the first commit in the list (latest commit)
 	if len(commits) > 0 {
-		return &commits[0], nil
+		return commits[0], nil
 	}
 
 	return nil, fmt.Errorf("no commits found")
@@ -160,6 +100,7 @@ func CommitsHandler(w http.ResponseWriter, r *http.Request) {
 				// Get installation token using the JWT
 				accessToken, err = GetInstallationToken(jwtToken, repo)
 				if err != nil {
+					log.Println(err)
 					log.Println("WARNING: Failed to get installation token. Falling back to unauthenticated mode.")
 					accessToken = ""
 				}
