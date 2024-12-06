@@ -25,9 +25,9 @@ type MergedReleases struct {
 	Current *Release `json:"current"`
 }
 
-func FetchReleases(repo, accessToken, gitRef string) (*StandardizedOutput, error) {
+func FetchReleases(repo, gitRef string) (*StandardizedOutput, error) {
 	owner, repoName, _ := strings.Cut(repo, "/")
-	client := github.NewClient(nil).WithAuthToken(accessToken)
+	client := NewGithubClient(repo)
 	ctx := context.Background()
 	releases, _, err := client.Repositories.ListReleases(ctx, owner, repoName, nil)
 	if err != nil {
@@ -79,33 +79,8 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Initialize accessToken for optional authentication
-	var accessToken string
-
-	// Check if private key path is defined for authentication
-	if privateKeyPath != "" {
-		privateKey, err := LoadPrivateKey(privateKeyPath)
-		if err != nil {
-			log.Println("WARNING: Failed to load private key. Falling back to unauthenticated mode.")
-		} else {
-			// Generate JWT for GitHub App
-			jwtToken, err := GenerateJWT(privateKey)
-			if err != nil {
-				log.Println("WARNING: Failed to generate JWT. Falling back to unauthenticated mode.")
-			} else {
-				// Get installation token using the JWT
-				accessToken, err = GetInstallationToken(jwtToken, repo)
-				if err != nil {
-					log.Println(err)
-					log.Println("WARNING: Failed to get installation token. Falling back to unauthenticated mode.")
-					accessToken = ""
-				}
-			}
-		}
-	}
-
 	// Fetch release information
-	releases, err := FetchReleases(repo, accessToken, gitRef)
+	releases, err := FetchReleases(repo, gitRef)
 	if err != nil {
 		log.Printf("Error fetching releases: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
