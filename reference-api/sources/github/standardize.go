@@ -1,5 +1,7 @@
 package github
 
+import "github.com/google/go-github/v67/github"
+
 // Create a standardized struct for Commits and Releases
 type StandardizedOutput struct {
 	Latest  *StandardizedEntity `json:"latest"`
@@ -14,32 +16,32 @@ type StandardizedEntity struct {
 	PublishedAt string `json:"published_at"` // Commit Date or Release Published At
 }
 
-// StandardizeCommit converts a Commit into a StandardizedEntity
-func StandardizeCommit(commit *Commit) *StandardizedEntity {
+// StandardizeCommit converts a RepositoryCommit into a StandardizedEntity
+func StandardizeCommit(commit *github.RepositoryCommit) *StandardizedEntity {
 	if commit == nil {
 		return nil
 	}
 
 	return &StandardizedEntity{
-		Ref:         commit.SHA,
-		URL:         commit.URL,
-		Message:     commit.Commit.Message,
-		Author:      commit.Author.Login,
-		PublishedAt: commit.Commit.Author.Date,
+		Ref:         *commit.SHA,
+		URL:         *commit.HTMLURL,
+		Message:     *commit.Commit.Message,
+		Author:      *commit.Author.Login,
+		PublishedAt: commit.Commit.Author.Date.String(),
 	}
 }
 
 // StandardizeRelease converts a Release into a StandardizedEntity
-func StandardizeRelease(release *Release) *StandardizedEntity {
+func StandardizeRelease(release *github.RepositoryRelease) *StandardizedEntity {
 	if release == nil {
 		return nil
 	}
 
 	return &StandardizedEntity{
-		Ref:         release.TagName,
-		URL:         release.URL,
-		Message:     release.Body,
-		Author:      release.Author.Login,
-		PublishedAt: release.PublishedAt,
+		Ref:         *release.TagName,
+		URL:         *release.HTMLURL,
+		Message:     *release.Body,
+		Author:      *release.Author.Login,
+		PublishedAt: release.PublishedAt.String(),
 	}
 }

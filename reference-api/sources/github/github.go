@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/google/go-github/v67/github"
 )
 
 const (
@@ -108,4 +109,43 @@ func GetInstallationToken(jwtToken string, repo string) (string, error) {
 		return "", err
 	}
 	return tokenResp.Token, nil
+}
+
+func GenerateAuthToken(repo string) string {
+	// Initialize accessToken for optional authentication
+	var accessToken string
+
+	// Check if private key path is defined for authentication
+	if privateKeyPath != "" {
+		privateKey, err := LoadPrivateKey(privateKeyPath)
+		if err != nil {
+			log.Println("WARNING: Failed to load private key. Falling back to unauthenticated mode.")
+		} else {
+			// Generate JWT for GitHub App
+			jwtToken, err := GenerateJWT(privateKey)
+			if err != nil {
+				log.Println("WARNING: Failed to generate JWT. Falling back to unauthenticated mode.")
+			} else {
+				// Get installation token using the JWT
+				accessToken, err = GetInstallationToken(jwtToken, repo)
+				if err != nil {
+					log.Println(err)
+					log.Println("WARNING: Failed to get installation token. Falling back to unauthenticated mode.")
+					accessToken = ""
+				}
+			}
+		}
+	}
+	return accessToken
+}
+
+func NewGithubClient(repo string) *github.Client {
+	authToken := GenerateAuthToken(repo)
+	client := github.NewClient(nil)
+	if authToken == "" {
+		log.Println("WARNING: Failed to get installation token. Returning unathenticated client.")
+		return client
+	}
+	return client.WithAuthToken(authToken)
+
 }
