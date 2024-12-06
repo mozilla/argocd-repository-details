@@ -29,14 +29,22 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 
 	if repo == "" || gitRef == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "Missing 'repo' or 'gitRef' query parameter")
+		_, err := fmt.Fprintln(w, "Missing 'repo' or 'gitRef' query parameter")
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 		return
 	}
 
 	// Return an error if gitRef is "latest"
 	if gitRef == "latest" {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "'latest' is not a valid value for 'gitRef' please use an immutable image that matches a gitRef on your application repository")
+		errMsg := "'latest' is not a valid value for 'gitRef' please use an immutable image that matches a gitRef on" +
+			" your application repository"
+		_, err := fmt.Fprintln(w, errMsg)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 		return
 	}
 

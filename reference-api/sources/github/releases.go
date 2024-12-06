@@ -38,12 +38,16 @@ func FetchReleases(repo, accessToken, gitRef string) (*StandardizedOutput, error
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	// Execute the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %s", resp.Status)
@@ -60,6 +64,7 @@ func FetchReleases(repo, accessToken, gitRef string) (*StandardizedOutput, error
 
 	// Iterate through releases to find the latest and the matching release
 	for _, release := range releases {
+		release := release
 		// Identify the latest release (first in the list, assuming GitHub returns them in descending order)
 		if latestRelease == nil {
 			latestRelease = &release
@@ -90,13 +95,11 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate query parameters
 	if repo == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing 'repo' query parameter"})
+		errorEncoder(w, http.StatusBadRequest, "Missing 'repo' query parameter")
 		return
 	}
 	if gitRef == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing 'gitRef' query parameter"})
+		errorEncoder(w, http.StatusBadRequest, "Missing 'gitRef' query parameter")
 		return
 	}
 
@@ -128,19 +131,15 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 	releases, err := FetchReleases(repo, accessToken, gitRef)
 	if err != nil {
 		log.Printf("Error fetching releases: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to fetch release information"})
-		return
+		errorEncoder(w, http.StatusInternalServerError, "Failed to fetch release information")
 	}
 
 	// Check if a release was found
 	if releases == nil || (releases.Current == nil || releases.Latest == nil) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "No release found for the given repository and gitRef"})
-		return
+		errorEncoder(w, http.StatusNotFound, "No release found for the given repository and gitRef")
 	}
 
 	// Return release details
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(releases)
+	responseEncoder(w, http.StatusOK, releases)
+
 }

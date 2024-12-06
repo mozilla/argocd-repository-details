@@ -43,12 +43,16 @@ func FetchCommit(repo, accessToken, gitRef string) (*Commit, error) {
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	// Execute the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %s", resp.Status)
@@ -80,12 +84,16 @@ func FetchLatestCommit(repo, accessToken string) (*Commit, error) {
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	// Execute the request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		closeErr := resp.Body.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status: %s", resp.Status)
@@ -133,13 +141,11 @@ func CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	repo := r.URL.Query().Get("repo")
 	gitRef := r.URL.Query().Get("gitRef") // Get the gitRef parameter
 	if repo == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing 'repo' query parameter"})
+		errorEncoder(w, http.StatusBadRequest, "Missing 'repo' query parameter")
 		return
 	}
 	if gitRef == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing 'gitRef' query parameter"})
+		errorEncoder(w, http.StatusBadRequest, "Missing 'gitRef' query parameter")
 		return
 	}
 
@@ -170,12 +176,11 @@ func CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	// Fetch the commits
 	commits, err := FetchCommits(repo, accessToken, gitRef)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error()})
+		errorEncoder(w, http.StatusNotFound, err.Error())
 		return
 	}
 
 	// Respond with the merged commits
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(commits)
+	responseEncoder(w, http.StatusOK, commits)
 }
