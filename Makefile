@@ -82,7 +82,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes.
 build: build-ui build-go ## Build the UI extension and the reference-api binary
 
 .PHONY: build-go
-build-go: fmt vet ## Build the ephemeral-access binary.
+build-go: fmt vet ## Build the reference-api binary.
 	cd reference-api && go build -o bin/reference-api .
 
 .PHONY: clean-ui

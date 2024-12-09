@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/component: reference-api
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: argocd-ephemeral-access
+    app.kubernetes.io/name: argocd-release-details
   name: reference-api
 ---
 apiVersion: v1
