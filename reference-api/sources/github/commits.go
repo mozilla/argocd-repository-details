@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -73,25 +72,22 @@ func CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	repo := r.URL.Query().Get("repo")
 	gitRef := r.URL.Query().Get("gitRef") // Get the gitRef parameter
 	if repo == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing 'repo' query parameter"})
+		errorEncoder(w, http.StatusBadRequest, "Missing 'repo' query parameter")
 		return
 	}
 	if gitRef == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing 'gitRef' query parameter"})
+		errorEncoder(w, http.StatusBadRequest, "Missing 'gitRef' query parameter")
 		return
 	}
 
 	// Fetch the commits
 	commits, err := FetchCommits(repo, gitRef)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: err.Error()})
+		errorEncoder(w, http.StatusNotFound, err.Error())
 		return
 	}
 
 	// Respond with the merged commits
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(commits)
+	responseEncoder(w, http.StatusOK, commits)
 }
