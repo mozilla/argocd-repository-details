@@ -8,8 +8,8 @@ version: 2
 
 before:
   hooks:
-    - cd reference-api && go mod tidy
-    - cd reference-api && go mod download
+    - sh -c "cd reference-api && go mod tidy"
+    - sh -c "cd reference-api && go mod download"
     - make build-ui
     - rm -rf dist
 
