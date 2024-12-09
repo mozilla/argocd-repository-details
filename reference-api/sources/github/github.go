@@ -3,7 +3,9 @@ package github
 import (
 	"context"
 	"crypto/rsa"
+	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -22,11 +24,28 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
+func errorEncoder(w http.ResponseWriter, status int, message string) {
+	w.WriteHeader(status)
+	err := json.NewEncoder(w).Encode(ErrorResponse{Error: message})
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func responseEncoder(w http.ResponseWriter, status int, body any) {
+	w.WriteHeader(status)
+	err := json.NewEncoder(w).Encode(body)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
 // LoadPrivateKey loads the RSA private key from the file
 func LoadPrivateKey(filePath string) (*rsa.PrivateKey, error) {
 	keyData, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Printf("WARNING: Private key not found or could not be read (%s). Falling back to unauthenticated mode.", err.Error())
+		errMsg := "WARNING: Private key not found or could not be read (%s). Falling back to unauthenticated mode."
+		log.Printf(errMsg, err.Error())
 		return nil, nil // Continue without breaking
 	}
 
