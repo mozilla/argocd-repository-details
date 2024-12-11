@@ -11,6 +11,7 @@ before:
     - sh -c "cd reference-api && go mod tidy"
     - sh -c "cd reference-api && go mod download"
     - make build-ui
+    - make manifests-release IMAGE_TAG={{ .Tag }}
     - rm -rf dist
 
 builds:
@@ -30,6 +31,20 @@ builds:
       - -X github.com/mozilla/argocd-repository-details/reference-api/common.version={{ .Version }}
       - -X github.com/mozilla/argocd-repository-details/reference-api/common.buildDate={{ .Date }}
       - -extldflags="-static"
+
+dockers:
+  - image_templates:
+    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details:latest
+    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details:{{ .Tag }}
+    dockerfile: release.Dockerfile
+    skip_push: "{{ .IsSnapshot }}"
+    build_flag_templates:
+    - "--pull"
+    - "--label=org.opencontainers.image.created={{.Date}}"
+    - "--label=org.opencontainers.image.title={{.ProjectName}}"
+    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+    - "--label=org.opencontainers.image.version={{.Version}}"
+    - "--platform=linux/amd64"
 
 archives:
   - id: binary
@@ -63,17 +78,17 @@ checksum:
 release:
   prerelease: auto
   draft: false
-  # Revert this after the manifest generation is complete.
-  # extra_files:
-  #   - glob: ./install.yaml
+  Revert this after the manifest generation is complete.
+  extra_files:
+    - glob: ./install.yaml
   header: |
     ## argocd-repository-details
     {{ .Date }}
 
     ### Docker images
 
-    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api:{{ .Tag }}
-    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api:latest
+    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details:{{ .Tag }}
+    - us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details:latest
 
 changelog:
   use:

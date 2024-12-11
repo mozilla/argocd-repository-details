@@ -9,6 +9,7 @@ env:
   # If set in the repo env vars it will use this tag to build the release notes.
   # Useful when creating a release tag after a release candidate tags phase.
   GORELEASER_PREVIOUS_TAG: ${{vars.GORELEASER_PREVIOUS_TAG}}
+  GCP_PROJECT_ID: moz-fx-platform-artifacts
 
 defaults:
   run:
@@ -29,6 +30,20 @@ jobs:
         uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # pin@v4
         with:
           go-version: 1.22
+
+      - name: Google authentication
+        uses: google-github-actions/auth@v2
+        with:
+          token_format: "access_token"
+          service_account: artifact-writer@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+          workload_identity_provider: ${{ vars.GCPV2_GITHUB_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Log in to the container registry
+        uses: docker/login-action@v2
+        with:
+          registry: us-west1-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.gcp-auth.outputs.access_token }}
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4
