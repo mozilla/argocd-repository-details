@@ -26,7 +26,7 @@ spec:
       - env:
         - name: REFERENCE_API_DEFAULT_REF
           value: main
-        image: us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api:0.1.0
+        image: us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
