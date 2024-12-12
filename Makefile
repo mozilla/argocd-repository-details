@@ -98,6 +98,10 @@ build-ui: clean-ui ## build the Argo CD UI extension creating the ui/extension.t
 goreleaser-build-local: goreleaser ## Run goreleaser build locally. Use to validate the goreleaser configuration.
 	$(GORELEASER) build --snapshot --clean --single-target --verbose
 
+.PHONY: manifests-release
+manifests-release: ## Generate the consolidated install.yaml with the release tag.
+	./scripts/manifests-release.sh $(KUSTOMIZE) $(IMAGE_TAG)
+
 ##@ Dependencies
 
 ## Location to install dependencies to
@@ -109,14 +113,17 @@ $(LOCALBIN):
 KUBECTL ?= kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
-MOCKERY ?= $(LOCALBIN)/mockery-$(MOCKERY_VERSION)
 GORELEASER ?= $(LOCALBIN)/goreleaser-$(GORELEASER_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
 GOLANGCI_LINT_VERSION ?= v1.57.2
-MOCKERY_VERSION ?= v2.45.0
 GORELEASER_VERSION ?= v2.3.2
+
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
+$(KUSTOMIZE): $(LOCALBIN)
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
