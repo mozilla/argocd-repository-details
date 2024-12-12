@@ -35,6 +35,7 @@ jobs:
           go-version: 1.22
 
       - name: Google authentication
+        id: gcp-auth
         uses: google-github-actions/auth@v2
         with:
           token_format: "access_token"
