@@ -16,7 +16,7 @@ ex.
 ```
     info:
       - name: 'Image Repository'
-        value: 'us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api'
+        value: 'us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details'
       - name: 'Application Repository'
         value: 'mozilla/application-repository-details'
 ```
