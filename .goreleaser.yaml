@@ -78,7 +78,6 @@ checksum:
 release:
   prerelease: auto
   draft: false
-  Revert this after the manifest generation is complete.
   extra_files:
     - glob: ./install.yaml
   header: |
