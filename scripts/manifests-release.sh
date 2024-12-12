@@ -16,7 +16,7 @@ if [ -z "$IMAGE_TAG" ]; then
     exit 1
 fi
 
-IMAGE_NAMESPACE="${IMAGE_NAMESPACE:us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details}"
+IMAGE_NAMESPACE="us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details"
 IMAGE_FQN="$IMAGE_NAMESPACE:$IMAGE_TAG"
 
 $KUSTOMIZE version

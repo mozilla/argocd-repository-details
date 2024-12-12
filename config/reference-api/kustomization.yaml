@@ -8,5 +8,3 @@ resources:
 images:
 - name: us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details
   newTag: latest
-- name: us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/reference-api
-  newTag: latest
