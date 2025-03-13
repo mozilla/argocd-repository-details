@@ -48,6 +48,7 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if gitRef == "latest" {
+		w.WriteHeader(http.StatusBadRequest)
 		errMsg := "'latest' is not a valid value for 'gitRef' please use an immutable image that matches a gitRef on" +
 			" your application repository"
 		_, err := fmt.Fprintln(w, errMsg)
