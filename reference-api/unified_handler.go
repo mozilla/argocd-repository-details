@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
+	"net/http/httptest"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 )
@@ -13,7 +14,13 @@ import (
 type HandlerDeps struct {
 	CommitsHandler  http.HandlerFunc
 	ReleasesHandler http.HandlerFunc
-	cache           *lru.Cache[string, []byte]
+	cache           *lru.Cache[string, CachedResponse]
+}
+
+type CachedResponse struct {
+	StatusCode int
+	Body       []byte
+	Timestamp  int64 // Unix timestamp when stored
 }
 
 type responseRecorder struct {
@@ -23,6 +30,9 @@ type responseRecorder struct {
 }
 
 func (rec *responseRecorder) Write(p []byte) (int, error) {
+	if rec.statusCode == 0 { // Default to 200 if WriteHeader was never called
+		rec.statusCode = http.StatusOK
+	}
 	rec.body.Write(p)
 	return rec.ResponseWriter.Write(p)
 }
@@ -34,75 +44,99 @@ func (rec *responseRecorder) WriteHeader(code int) {
 
 // UnifiedHandler with in-memory caching
 func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract query parameters
 	repo := r.URL.Query().Get("repo")
 	gitRef := r.URL.Query().Get("gitRef")
 
 	if repo == "" || gitRef == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		_, err := fmt.Fprintln(w, "Missing 'repo' or 'gitRef' query parameter")
-		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		}
+		http.Error(w, "Missing 'repo' or 'gitRef' query parameter", http.StatusBadRequest)
 		return
 	}
 
 	if gitRef == "latest" {
-		w.WriteHeader(http.StatusBadRequest)
-		errMsg := "'latest' is not a valid value for 'gitRef' please use an immutable image that matches a gitRef on" +
-			" your application repository"
-		_, err := fmt.Fprintln(w, errMsg)
-		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		}
+		http.Error(w, "'latest' is not a valid value for 'gitRef'. Please use an immutable image.", http.StatusBadRequest)
+		return
 	}
 
 	cacheKey := fmt.Sprintf("%s:%s", repo, gitRef)
 
-	// Check cache
+	// Check cache first
 	if cachedResponse, ok := deps.getFromCache(cacheKey); ok {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(cachedResponse)
-		return
-	}
-
-	// Determine if gitRef looks like a commit hash
-	commitHashRegex := regexp.MustCompile(`^[a-fA-F0-9]{7,40}$`)
-	if commitHashRegex.MatchString(gitRef) {
-		rec := &responseRecorder{ResponseWriter: w, statusCode: 200}
-		deps.CommitsHandler(rec, r)
-		deps.storeInCache(cacheKey, rec.body.Bytes()) // Cache response
+		w.WriteHeader(cachedResponse.StatusCode)
+		_, _ = w.Write(cachedResponse.Body)
 		return
 	}
 
 	// Try handling as a release first
-	releaseRecorder := &responseRecorder{ResponseWriter: w, statusCode: 200}
+	releaseRecorder := &responseRecorder{ResponseWriter: httptest.NewRecorder(), statusCode: 0} // Use a separate ResponseRecorder
 	deps.ReleasesHandler(releaseRecorder, r)
 
-	// If release is found, cache and return it
+	// If release is found (not 404), cache and return
 	if releaseRecorder.statusCode != http.StatusNotFound {
-		deps.storeInCache(cacheKey, releaseRecorder.body.Bytes())
+		w.WriteHeader(releaseRecorder.statusCode)
+		w.Write(releaseRecorder.body.Bytes())
+		deps.storeInCache(cacheKey, releaseRecorder.statusCode, releaseRecorder.body.Bytes())
 		return
 	}
 
-	// Fall back to commits if no release is found
-	commitRecorder := &responseRecorder{ResponseWriter: w, statusCode: 200}
-	deps.CommitsHandler(commitRecorder, r)
+	// Clear previous response before falling back
+	w.Header().Del("Content-Type") // Ensure correct content type is set by CommitsHandler
+	w.WriteHeader(http.StatusOK)   // Reset status before falling back
 
-	// Cache the final commit response
-	deps.storeInCache(cacheKey, commitRecorder.body.Bytes())
+	// Fall back to CommitsHandler
+	deps.processAndCacheResponse(deps.CommitsHandler, w, r, cacheKey)
 }
 
-func (deps *HandlerDeps) getFromCache(key string) ([]byte, bool) {
+func (deps *HandlerDeps) processAndCacheResponse(handler http.HandlerFunc, w http.ResponseWriter, r *http.Request, cacheKey string) {
+	rec := &responseRecorder{ResponseWriter: w, statusCode: 0} // Use 0 so that we can catch missing status updates
+	handler(rec, r)
+
+	// Store both status and response body
+	deps.storeInCache(cacheKey, rec.statusCode, rec.body.Bytes())
+}
+
+// Expiration durations
+const (
+	SuccessCacheDuration = 24 * time.Hour // 24 hours for 200 responses
+	ErrorCacheDuration   = 1 * time.Hour  // 1 hour for non-200 responses
+)
+
+func (deps *HandlerDeps) getFromCache(key string) (CachedResponse, bool) {
 	if value, ok := deps.cache.Get(key); ok {
-		log.Printf("Cache hit for key: %s", key)
+		currentTime := time.Now()
+
+		// Determine expiration time based on status code
+		var expirationTime time.Time
+		if value.StatusCode == http.StatusOK {
+			expirationTime = time.Unix(value.Timestamp, 0).Add(SuccessCacheDuration)
+		} else {
+			expirationTime = time.Unix(value.Timestamp, 0).Add(ErrorCacheDuration)
+		}
+
+		// Check if the cache entry has expired
+		if currentTime.After(expirationTime) {
+			log.Printf("Cache expired for key: %s (Stored at: %s, Expired at: %s)",
+				key, time.Unix(value.Timestamp, 0), expirationTime)
+			deps.cache.Remove(key)
+			return CachedResponse{}, false
+		}
+
+		log.Printf("Cache hit for key: %s (Stored at: %s, Expires at: %s), Status: %d, Body: %s",
+			key, time.Unix(value.Timestamp, 0), expirationTime, value.StatusCode, string(value.Body))
 		return value, true
 	}
+
 	log.Printf("Cache miss for key: %s", key)
-	return nil, false
+	return CachedResponse{}, false
 }
 
-func (deps *HandlerDeps) storeInCache(key string, value []byte) {
-	deps.cache.Add(key, value)
-	log.Printf("Cached response for key: %s", key)
+func (deps *HandlerDeps) storeInCache(key string, statusCode int, value []byte) {
+	timestamp := time.Now().Unix() // Store current timestamp
+
+	deps.cache.Add(key, CachedResponse{
+		StatusCode: statusCode,
+		Body:       value,
+		Timestamp:  timestamp,
+	})
+
+	log.Printf("Cached response for key: %s, Status: %d (Stored at %d)", key, statusCode, timestamp)
 }

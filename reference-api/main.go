@@ -11,7 +11,7 @@ import (
 	"github.com/mozilla/argocd-repository-details/reference-api/sources/github"
 )
 
-func onEvict(key string, value []byte) {
+func onEvict(key string, value CachedResponse) {
 	// Function called during eviction, log key evicted from cache
 	log.Printf("Evicted from cache: %s", key)
 }
@@ -27,7 +27,8 @@ func main() {
 		}
 	}
 
-	cache, err := lru.NewWithEvict[string, []byte](cacheSize, onEvict)
+	// Create the LRU cache with the correct type
+	cache, err := lru.NewWithEvict[string, CachedResponse](cacheSize, onEvict)
 	if err != nil {
 		log.Fatalf("Failed to create cache: %v", err)
 	}

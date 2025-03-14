@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -28,9 +29,16 @@ func FetchReleases(repo, gitRef string) (*StandardizedOutput, error) {
 	owner, repoName, _ := strings.Cut(repo, "/")
 	client := NewGithubClient(repo)
 	ctx := context.Background()
-	releases, _, err := client.Repositories.ListReleases(ctx, owner, repoName, nil)
+
+	// Perform GitHub API request
+	releases, resp, err := client.Repositories.ListReleases(ctx, owner, repoName, nil)
+
+	// Handle HTTP response errors
 	if err != nil {
-		return nil, err
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("404 Not Found: No releases found for repo %s", repo)
+		}
+		return nil, fmt.Errorf("GitHub API error: %v", err)
 	}
 
 	var latestRelease *github.RepositoryRelease
@@ -55,7 +63,7 @@ func FetchReleases(repo, gitRef string) (*StandardizedOutput, error) {
 		}
 	}
 
-	// Normalize the releases
+	// Return the standardized response
 	return &StandardizedOutput{
 		Latest:  StandardizeRelease(latestRelease),
 		Current: StandardizeRelease(matchingRelease),
@@ -81,15 +89,22 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 	releases, err := FetchReleases(repo, gitRef)
 	if err != nil {
 		log.Printf("Error fetching releases: %v", err)
-		errorEncoder(w, http.StatusInternalServerError, "Failed to fetch release information")
+
+		// If the error is due to GitHub returning a non-200 response, set the correct status
+		if strings.Contains(err.Error(), "404") {
+			errorEncoder(w, http.StatusNotFound, "GitHub API returned 404: Release not found")
+		} else {
+			errorEncoder(w, http.StatusInternalServerError, "Failed to fetch release information")
+		}
+		return
 	}
 
 	// Check if a release was found
-	if releases == nil || (releases.Current == nil || releases.Latest == nil) {
+	if releases == nil || (releases.Current == nil) {
 		errorEncoder(w, http.StatusNotFound, "No release found for the given repository and gitRef")
+		return
 	}
 
 	// Return release details
 	responseEncoder(w, http.StatusOK, releases)
-
 }
