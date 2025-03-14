@@ -177,7 +177,11 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 	t.Run("Cache Eviction (Size-Based)", func(t *testing.T) {
 		for i := 1; i <= 6; i++ { // Exceed cache limit of 5
 			cacheKey := fmt.Sprintf("repo%d:gitRef%d", i, i)
-			cache.Add(cacheKey, CachedResponse{StatusCode: http.StatusOK, Body: []byte(fmt.Sprintf(`{"handler": "test%d"}`, i)), Timestamp: time.Now().Unix()})
+			cache.Add(cacheKey, CachedResponse{
+				StatusCode: http.StatusOK,
+				Body:       []byte(fmt.Sprintf(`{"handler": "test%d"}`, i)),
+				Timestamp:  time.Now().Unix(),
+			})
 			time.Sleep(10 * time.Millisecond) // Allow eviction logging to appear
 		}
 

@@ -67,13 +67,18 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Try handling as a release first
-	releaseRecorder := &responseRecorder{ResponseWriter: httptest.NewRecorder(), statusCode: 0} // Use a separate ResponseRecorder
+	releaseRecorder := &responseRecorder{
+		ResponseWriter: httptest.NewRecorder(),
+		statusCode:     0, // Use a separate ResponseRecorder
+	}
 	deps.ReleasesHandler(releaseRecorder, r)
 
 	// If release is found (not 404), cache and return
 	if releaseRecorder.statusCode != http.StatusNotFound {
 		w.WriteHeader(releaseRecorder.statusCode)
-		w.Write(releaseRecorder.body.Bytes())
+		if _, err := w.Write(releaseRecorder.body.Bytes()); err != nil {
+			log.Printf("Error writing response: %v", err)
+		}
 		deps.storeInCache(cacheKey, releaseRecorder.statusCode, releaseRecorder.body.Bytes())
 		return
 	}
@@ -86,7 +91,12 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 	deps.processAndCacheResponse(deps.CommitsHandler, w, r, cacheKey)
 }
 
-func (deps *HandlerDeps) processAndCacheResponse(handler http.HandlerFunc, w http.ResponseWriter, r *http.Request, cacheKey string) {
+func (deps *HandlerDeps) processAndCacheResponse(
+	handler http.HandlerFunc,
+	w http.ResponseWriter,
+	r *http.Request,
+	cacheKey string,
+) {
 	rec := &responseRecorder{ResponseWriter: w, statusCode: 0} // Use 0 so that we can catch missing status updates
 	handler(rec, r)
 
