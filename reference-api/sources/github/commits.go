@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/google/go-github/v67/github"
@@ -45,12 +46,15 @@ func FetchLatestCommit(repo string) (*github.RepositoryCommit, error) {
 }
 
 // FetchCommits fetches both the latest commit and the one matching the Git reference (gitRef)
-func FetchCommits(repo, gitRef string) (*StandardizedOutput, error) {
+func FetchCommits(repo, gitRef string) (*StandardizedOutput, int, error) {
 	// Fetch the current commit
 	currentCommit, err := FetchCommit(repo, gitRef)
 	if err != nil {
 		log.Printf("Error fetching current commit: %v", err)
-		currentCommit = nil // Allow partial results
+		if strings.Contains(err.Error(), "404") {
+			return nil, http.StatusNotFound, fmt.Errorf("commit not found for gitRef: %s", gitRef)
+		}
+		return nil, http.StatusInternalServerError, fmt.Errorf("error fetching commit: %v", err)
 	}
 
 	// Fetch the latest commit
@@ -64,13 +68,13 @@ func FetchCommits(repo, gitRef string) (*StandardizedOutput, error) {
 	return &StandardizedOutput{
 		Latest:  StandardizeCommit(latestCommit),
 		Current: StandardizeCommit(currentCommit),
-	}, nil
+	}, http.StatusOK, nil
 }
 
 // CommitsHandler handles the API endpoint for fetching the latest and current commits
 func CommitsHandler(w http.ResponseWriter, r *http.Request) {
 	repo := r.URL.Query().Get("repo")
-	gitRef := r.URL.Query().Get("gitRef") // Get the gitRef parameter
+	gitRef := r.URL.Query().Get("gitRef")
 	if repo == "" {
 		errorEncoder(w, http.StatusBadRequest, "Missing 'repo' query parameter")
 		return
@@ -80,14 +84,20 @@ func CommitsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch the commits
-	commits, err := FetchCommits(repo, gitRef)
-	if err != nil {
-		errorEncoder(w, http.StatusNotFound, err.Error())
+	commitHashRegex := regexp.MustCompile(`^[a-fA-F0-9]{7,40}$`)
+	if !commitHashRegex.MatchString(gitRef) {
+		errorEncoder(w, http.StatusBadRequest, "Invalid gitRef format: Expected a commit SHA")
 		return
 	}
 
-	// Respond with the merged commits
+	// Fetch the commits and get the response status
+	commits, statusCode, err := FetchCommits(repo, gitRef)
+	if err != nil {
+		errorEncoder(w, statusCode, err.Error()) // Return correct status code
+		return
+	}
+
+	// Set response headers and send response
 	w.Header().Set("Content-Type", "application/json")
-	responseEncoder(w, http.StatusOK, commits)
+	responseEncoder(w, statusCode, commits)
 }
