@@ -47,7 +47,6 @@ func FetchLatestCommit(repo string) (*github.RepositoryCommit, error) {
 
 // FetchCommits fetches both the latest commit and the one matching the Git reference (gitRef)
 func FetchCommits(repo, gitRef string) (*StandardizedOutput, int, error) {
-	// Fetch the current commit
 	currentCommit, err := FetchCommit(repo, gitRef)
 	if err != nil {
 		log.Printf("Error fetching current commit: %v", err)
@@ -57,7 +56,6 @@ func FetchCommits(repo, gitRef string) (*StandardizedOutput, int, error) {
 		return nil, http.StatusInternalServerError, fmt.Errorf("error fetching commit: %v", err)
 	}
 
-	// Fetch the latest commit
 	latestCommit, err := FetchLatestCommit(repo)
 	if err != nil {
 		log.Printf("Error fetching latest commit: %v", err)
@@ -90,14 +88,12 @@ func CommitsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch the commits and get the response status
 	commits, statusCode, err := FetchCommits(repo, gitRef)
 	if err != nil {
-		errorEncoder(w, statusCode, err.Error()) // Return correct status code
+		errorEncoder(w, statusCode, err.Error())
 		return
 	}
 
-	// Set response headers and send response
 	w.Header().Set("Content-Type", "application/json")
 	responseEncoder(w, statusCode, commits)
 }

@@ -15,6 +15,7 @@ type HandlerDeps struct {
 	CommitsHandler  http.HandlerFunc
 	ReleasesHandler http.HandlerFunc
 	cache           *lru.Cache[string, CachedResponse]
+	config          cacheConfiguration
 }
 
 type CachedResponse struct {
@@ -27,6 +28,11 @@ type responseRecorder struct {
 	http.ResponseWriter
 	statusCode int
 	body       bytes.Buffer
+}
+
+type cacheConfiguration struct {
+	SuccessCacheDuration time.Duration
+	ErrorCacheDuration   time.Duration
 }
 
 func (rec *responseRecorder) Write(p []byte) (int, error) {
@@ -104,12 +110,6 @@ func (deps *HandlerDeps) processAndCacheResponse(
 	deps.storeInCache(cacheKey, rec.statusCode, rec.body.Bytes())
 }
 
-// Expiration durations
-const (
-	SuccessCacheDuration = 24 * time.Hour // 24 hours for 200 responses
-	ErrorCacheDuration   = 1 * time.Hour  // 1 hour for non-200 responses
-)
-
 func (deps *HandlerDeps) getFromCache(key string) (CachedResponse, bool) {
 	if value, ok := deps.cache.Get(key); ok {
 		currentTime := time.Now()
@@ -117,9 +117,9 @@ func (deps *HandlerDeps) getFromCache(key string) (CachedResponse, bool) {
 		// Determine expiration time based on status code
 		var expirationTime time.Time
 		if value.StatusCode == http.StatusOK {
-			expirationTime = time.Unix(value.Timestamp, 0).Add(SuccessCacheDuration)
+			expirationTime = time.Unix(value.Timestamp, 0).Add(deps.config.SuccessCacheDuration)
 		} else {
-			expirationTime = time.Unix(value.Timestamp, 0).Add(ErrorCacheDuration)
+			expirationTime = time.Unix(value.Timestamp, 0).Add(deps.config.ErrorCacheDuration)
 		}
 
 		// Check if the cache entry has expired
@@ -130,8 +130,8 @@ func (deps *HandlerDeps) getFromCache(key string) (CachedResponse, bool) {
 			return CachedResponse{}, false
 		}
 
-		log.Printf("Cache hit for key: %s (Stored at: %s, Expires at: %s), Status: %d, Body: %s",
-			key, time.Unix(value.Timestamp, 0), expirationTime, value.StatusCode, string(value.Body))
+		log.Printf("Cache hit for key: %s (Stored at: %s, Expires at: %s), Status: %d",
+			key, time.Unix(value.Timestamp, 0), expirationTime, value.StatusCode)
 		return value, true
 	}
 

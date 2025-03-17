@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-github/v67/github"
 )
 
-// Release represents a GitHub release
 type Release struct {
 	TagName     string `json:"tag_name"`
 	URL         string `json:"html_url"`
@@ -30,10 +29,8 @@ func FetchReleases(repo, gitRef string) (*StandardizedOutput, error) {
 	client := NewGithubClient(repo)
 	ctx := context.Background()
 
-	// Perform GitHub API request
 	releases, resp, err := client.Repositories.ListReleases(ctx, owner, repoName, nil)
 
-	// Handle HTTP response errors
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil, fmt.Errorf("404 Not Found: No releases found for repo %s", repo)
@@ -63,7 +60,6 @@ func FetchReleases(repo, gitRef string) (*StandardizedOutput, error) {
 		}
 	}
 
-	// Return the standardized response
 	return &StandardizedOutput{
 		Latest:  StandardizeRelease(latestRelease),
 		Current: StandardizeRelease(matchingRelease),
@@ -99,12 +95,10 @@ func ReleasesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if a release was found
 	if releases == nil || (releases.Current == nil) {
 		errorEncoder(w, http.StatusNotFound, "No release found for the given repository and gitRef")
 		return
 	}
 
-	// Return release details
 	responseEncoder(w, http.StatusOK, releases)
 }

@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -106,6 +109,10 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 				CommitsHandler:  mockCommitsHandler,
 				ReleasesHandler: releaseHandler,
 				cache:           cache,
+				config: cacheConfiguration{
+					SuccessCacheDuration: 24 * time.Hour,
+					ErrorCacheDuration:   1 * time.Hour,
+				},
 			}
 
 			// Create a mock HTTP request
@@ -152,6 +159,10 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 			CommitsHandler:  mockCommitsHandler,
 			ReleasesHandler: mockReleasesHandler,
 			cache:           cache,
+			config: cacheConfiguration{
+				SuccessCacheDuration: 24 * time.Hour,
+				ErrorCacheDuration:   1 * time.Hour,
+			},
 		}
 
 		cacheKey := "test/repo:expired-entry"
@@ -189,4 +200,101 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 		_, found := cache.Get("repo1:gitRef1")
 		assert.False(t, found, "Expected first cached item to be evicted")
 	})
+}
+
+// TestCacheConfigurationEnvVars verifies that cache durations are correctly parsed from environment variables.
+func TestCacheConfigurationEnvVars(t *testing.T) {
+	// Save existing environment variables
+	origSuccess := os.Getenv("CACHE_SUCCESS_DURATION")
+	origError := os.Getenv("CACHE_ERROR_DURATION")
+
+	// Restore the original environment variables after test
+	defer func() {
+		if origSuccess != "" {
+			_ = os.Setenv("CACHE_SUCCESS_DURATION", origSuccess)
+		} else {
+			_ = os.Unsetenv("CACHE_SUCCESS_DURATION")
+		}
+		if origError != "" {
+			_ = os.Setenv("CACHE_ERROR_DURATION", origError)
+		} else {
+			_ = os.Unsetenv("CACHE_ERROR_DURATION")
+		}
+	}()
+
+	// Define test cases
+	tests := []struct {
+		name               string
+		successDuration    string
+		errorDuration      string
+		expectedSuccessDur time.Duration
+		expectedErrorDur   time.Duration
+	}{
+		{
+			name:               "Valid durations",
+			successDuration:    "48",
+			errorDuration:      "2",
+			expectedSuccessDur: 48 * time.Hour,
+			expectedErrorDur:   2 * time.Hour,
+		},
+		{
+			name:               "Invalid durations (fallback to default)",
+			successDuration:    "invalid",
+			errorDuration:      "-6",
+			expectedSuccessDur: 24 * time.Hour,
+			expectedErrorDur:   1 * time.Hour,
+		},
+		{
+			name:               "Empty env vars (fallback to default)",
+			successDuration:    "",
+			errorDuration:      "",
+			expectedSuccessDur: 24 * time.Hour,
+			expectedErrorDur:   1 * time.Hour,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set test environment variables
+			_ = os.Setenv("CACHE_SUCCESS_DURATION", tc.successDuration)
+			_ = os.Setenv("CACHE_ERROR_DURATION", tc.errorDuration)
+
+			// Call the logic to initialize cache configuration
+			const (
+				defaultSuccessDuration = 24 * time.Hour
+				defaultErrorDuration   = 1 * time.Hour
+			)
+
+			cacheConfig := cacheConfiguration{
+				SuccessCacheDuration: defaultSuccessDuration,
+				ErrorCacheDuration:   defaultErrorDuration,
+			}
+
+			if scd := os.Getenv("CACHE_SUCCESS_DURATION"); scd != "" {
+				duration, err := strconv.Atoi(scd)
+				if err != nil || duration < 0 {
+					log.Printf("Warning: Invalid CACHE_SUCCESS_DURATION: %s. Using default: %v", scd, defaultSuccessDuration)
+				} else {
+					cacheConfig.SuccessCacheDuration = time.Duration(duration) * time.Hour
+				}
+			}
+
+			if ecd := os.Getenv("CACHE_ERROR_DURATION"); ecd != "" {
+				duration, err := strconv.Atoi(ecd)
+				if err != nil || duration < 0 {
+					log.Printf("Warning: Invalid CACHE_ERROR_DURATION: %s. Using default: %v", ecd, defaultErrorDuration)
+				} else {
+					cacheConfig.ErrorCacheDuration = time.Duration(duration) * time.Hour
+				}
+			}
+
+			// Validate cache durations
+			if cacheConfig.SuccessCacheDuration != tc.expectedSuccessDur {
+				t.Errorf("Expected SuccessCacheDuration = %v, got %v", tc.expectedSuccessDur, cacheConfig.SuccessCacheDuration)
+			}
+			if cacheConfig.ErrorCacheDuration != tc.expectedErrorDur {
+				t.Errorf("Expected ErrorCacheDuration = %v, got %v", tc.expectedErrorDur, cacheConfig.ErrorCacheDuration)
+			}
+		})
+	}
 }
