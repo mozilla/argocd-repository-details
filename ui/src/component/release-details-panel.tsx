@@ -146,7 +146,7 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
       <div className="columns small-6">
         <div className="white-box">
           <div className="white-box__details">
-            <p>APPLICATION RELEASE</p>
+            <p>LATEST APPLICATION RELEASE</p>
             <div className="row white-box__details-row">
               <div className="columns small-3">REF</div>
               <div className="columns small-9">
