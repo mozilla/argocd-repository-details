@@ -77,11 +77,11 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
 
   return (
     <div className="row" style={{ marginTop: "15px" }}>
-      {/* Current Release Details */}
+      {/* Deployed Release Details */}
       <div className="columns small-6">
         <div className="white-box">
           <div className="white-box__details">
-            <p>CURRENT RELEASE</p>
+            <p>DEPLOYED RELEASE</p>
             <div className="row white-box__details-row">
               <div className="columns small-3">REF</div>
               <div className="columns small-9">
@@ -142,11 +142,11 @@ export const ReleaseDetailsPanel = ({ application }: ReleaseDetailsPanelFlyoutPr
         </div>
       </div>
 
-      {/* Latest Release Details */}
+      {/* Application Release Details */}
       <div className="columns small-6">
         <div className="white-box">
           <div className="white-box__details">
-            <p>LATEST RELEASE</p>
+            <p>LATEST APPLICATION RELEASE</p>
             <div className="row white-box__details-row">
               <div className="columns small-3">REF</div>
               <div className="columns small-9">

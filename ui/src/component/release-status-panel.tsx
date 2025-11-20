@@ -99,8 +99,8 @@ export const ReleaseStatusPanel = ({ application, openFlyout }) => {
           marginBottom: "0.5em",
         }}
       >
-        CURRENT RELEASE &nbsp;
-        {<HelpIcon title="The GitHub Release or Commit currently deployed by this ArgoCD Application. Click for more details and to see the latest release." />}
+        DEPLOYED RELEASE &nbsp;
+        {<HelpIcon title="The GitHub Release or Commit currently deployed by this ArgoCD Application. Click for more details and to see the latest application release." />}
       </label>
       <div style={{ ...messageStyle }}>{message}</div>
     </div>
@@ -145,8 +145,8 @@ export const ReleaseStatusPanel = ({ application, openFlyout }) => {
           marginBottom: "0.5em",
         }}
       >
-        CURRENT RELEASE &nbsp;
-        {<HelpIcon title="The GitHub Release or Commit currently deployed by this ArgoCD Application. Click for more details and to see the latest release." />}
+        DEPLOYED RELEASE &nbsp;
+        {<HelpIcon title="The GitHub Release or Commit currently deployed by this ArgoCD Application. Click for more details and to see the latest application release." />}
       </label>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
         {/* Tag Row */}
