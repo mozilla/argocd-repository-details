@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -63,7 +64,13 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cacheKey := fmt.Sprintf("%s:%s", repo, gitRef)
+	// Strip optional --<metadata> suffix from image tags
+	//  "v1.2.3--release" → "v1.2.3"
+	//  "dd295fd679--stage" → "dd295fd679"
+	baseGitRef, _, _ := strings.Cut(gitRef, "--")
+
+	// Use base gitRef for cache key (tags with different metadata share the same cache entry)
+	cacheKey := fmt.Sprintf("%s:%s", repo, baseGitRef)
 
 	// Check cache first
 	if cachedResponse, ok := deps.getFromCache(cacheKey); ok {
@@ -71,6 +78,11 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 		_, _ = w.Write(cachedResponse.Body)
 		return
 	}
+
+	// Modify request to use base gitRef (without metadata) for GitHub queries
+	q := r.URL.Query()
+	q.Set("gitRef", baseGitRef)
+	r.URL.RawQuery = q.Encode()
 
 	// Try handling as a release first
 	releaseRecorder := &responseRecorder{
