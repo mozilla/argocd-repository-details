@@ -202,6 +202,60 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 	})
 }
 
+// TestUnifiedHandlerWithMetadataSuffix verifies that gitRefs with metadata suffixes are handled correctly
+func TestUnifiedHandlerWithMetadataSuffix(t *testing.T) {
+	// Create an LRU cache
+	cache, err := lru.NewWithEvict[string, CachedResponse](10, onEvict)
+	assert.NoError(t, err, "Failed to initialize cache")
+
+	deps := &HandlerDeps{
+		CommitsHandler:  mockCommitsHandler,
+		ReleasesHandler: mockReleasesHandler,
+		cache:           cache,
+		config: cacheConfiguration{
+			SuccessCacheDuration: 24 * time.Hour,
+			ErrorCacheDuration:   1 * time.Hour,
+		},
+	}
+
+	repo := "test/repo"
+	baseGitRef := "v1.2.3"
+
+	// First request with metadata suffix
+	req1 := httptest.NewRequest("GET", "/api/references", nil)
+	q1 := req1.URL.Query()
+	q1.Add("repo", repo)
+	q1.Add("gitRef", "v1.2.3--release")
+	req1.URL.RawQuery = q1.Encode()
+
+	rr1 := httptest.NewRecorder()
+	handler := http.HandlerFunc(deps.UnifiedHandler)
+	handler.ServeHTTP(rr1, req1)
+
+	assert.Equal(t, http.StatusOK, rr1.Code)
+	assert.Equal(t, `{"handler": "releases"}`, rr1.Body.String())
+
+	// Verify cache key uses base gitRef (without metadata)
+	expectedCacheKey := fmt.Sprintf("%s:%s", repo, baseGitRef)
+	cachedData, found := deps.getFromCache(expectedCacheKey)
+	assert.True(t, found, "Expected response to be cached with key %s", expectedCacheKey)
+
+	// Second request with different metadata suffix should hit cache
+	req2 := httptest.NewRequest("GET", "/api/references", nil)
+	q2 := req2.URL.Query()
+	q2.Add("repo", repo)
+	q2.Add("gitRef", "v1.2.3--stage")
+	req2.URL.RawQuery = q2.Encode()
+
+	rr2 := httptest.NewRecorder()
+	handler.ServeHTTP(rr2, req2)
+
+	// Should get same cached response
+	assert.Equal(t, http.StatusOK, rr2.Code)
+	assert.Equal(t, `{"handler": "releases"}`, rr2.Body.String())
+	assert.Equal(t, string(cachedData.Body), rr2.Body.String(), "Different metadata suffixes should share cache")
+}
+
 // TestCacheConfigurationEnvVars verifies that cache durations are correctly parsed from environment variables.
 func TestCacheConfigurationEnvVars(t *testing.T) {
 	// Save existing environment variables
