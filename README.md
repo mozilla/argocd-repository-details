@@ -64,6 +64,10 @@ section in the `argocd-cm`.
 to the URL where backend service is configured. The backend service
 URL needs to be reacheable by the Argo CD API server.
 
+## Releasing
+
+See [RELEASING.md](RELEASING.md) for the complete release process including deployment to sandbox and production environments.
+
 ## Testing
 
 ### Start the backend service:

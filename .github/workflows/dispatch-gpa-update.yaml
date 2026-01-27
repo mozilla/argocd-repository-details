@@ -1,0 +1,17 @@
+name: Update Global Platform Admin with new release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify-gpa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger GPA update PRs
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.REPOSITORY_DETAILS_DISPATCHER_PAT }}" \
+            https://api.github.com/repos/mozilla/global-platform-admin/dispatches \
+            -d '{"event_type":"argocd-repository-details-release","client_payload":{"version":"${{ github.event.release.tag_name }}"}}'
