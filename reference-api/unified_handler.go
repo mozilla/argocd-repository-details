@@ -15,6 +15,7 @@ import (
 type HandlerDeps struct {
 	CommitsHandler  http.HandlerFunc
 	ReleasesHandler http.HandlerFunc
+	TagsHandler     http.HandlerFunc
 	cache           *lru.Cache[string, CachedResponse]
 	config          cacheConfiguration
 }
@@ -87,7 +88,7 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 	// Try handling as a release first
 	releaseRecorder := &responseRecorder{
 		ResponseWriter: httptest.NewRecorder(),
-		statusCode:     0, // Use a separate ResponseRecorder
+		statusCode:     0,
 	}
 	deps.ReleasesHandler(releaseRecorder, r)
 
@@ -98,6 +99,23 @@ func (deps *HandlerDeps) UnifiedHandler(w http.ResponseWriter, r *http.Request) 
 			log.Printf("Error writing response: %v", err)
 		}
 		deps.storeInCache(cacheKey, releaseRecorder.statusCode, releaseRecorder.body.Bytes())
+		return
+	}
+
+	// Try handling as a tag second
+	tagRecorder := &responseRecorder{
+		ResponseWriter: httptest.NewRecorder(),
+		statusCode:     0,
+	}
+	deps.TagsHandler(tagRecorder, r)
+
+	// If tag is found (not 404), cache and return
+	if tagRecorder.statusCode != http.StatusNotFound {
+		w.WriteHeader(tagRecorder.statusCode)
+		if _, err := w.Write(tagRecorder.body.Bytes()); err != nil {
+			log.Printf("Error writing response: %v", err)
+		}
+		deps.storeInCache(cacheKey, tagRecorder.statusCode, tagRecorder.body.Bytes())
 		return
 	}
 

@@ -17,18 +17,39 @@ import (
 // Mock handlers for testing
 func mockCommitsHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `{"handler": "commits"}`)
+	if _, err := fmt.Fprint(w, `{"handler": "commits"}`); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
 }
 
 func mockReleasesHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `{"handler": "releases"}`)
+	if _, err := fmt.Fprint(w, `{"handler": "releases"}`); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
 }
 
-// Mock release handler that simulates a 404 (to trigger commit fallback)
+func mockTagsHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	if _, err := fmt.Fprint(w, `{"handler": "tags"}`); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
+}
+
+// Mock release handler that simulates a 404 (to trigger tag fallback)
 func mockReleasesHandler404(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprint(w, `Not Found`)
+	if _, err := fmt.Fprint(w, `Not Found`); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
+}
+
+// Mock tags handler that simulates a 404 (to trigger commit fallback)
+func mockTagsHandler404(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
+	if _, err := fmt.Fprint(w, `Not Found`); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
 }
 
 func TestUnifiedHandlerWithCache(t *testing.T) {
@@ -44,6 +65,7 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 		expectedStatus   int
 		expectedBody     string
 		use404Releases   bool // Whether to simulate a 404 response from ReleasesHandler
+		use404Tags       bool // Whether to simulate a 404 response from TagsHandler
 		expectedCacheKey string
 	}{
 		{
@@ -52,23 +74,35 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 			gitRef:         "v1.0.0",
 			expectedStatus: http.StatusOK,
 			expectedBody:   `{"handler": "releases"}`,
-			use404Releases: false, // Should be served from ReleasesHandler
+			use404Releases: false,
+			use404Tags:     false,
 		},
 		{
-			name:           "Valid short commit SHA (release 404s, should fall back to commits)",
+			name:           "Valid git tag (releases 404, should be served from tags)",
+			repo:           "test/repo",
+			gitRef:         "v2.0.0",
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"handler": "tags"}`,
+			use404Releases: true,
+			use404Tags:     false,
+		},
+		{
+			name:           "Valid short commit SHA (releases and tags 404, should fall back to commits)",
 			repo:           "test/repo",
 			gitRef:         "abc1234",
 			expectedStatus: http.StatusOK,
 			expectedBody:   `{"handler": "commits"}`,
-			use404Releases: true, // Simulate a 404 from ReleasesHandler
+			use404Releases: true,
+			use404Tags:     true,
 		},
 		{
-			name:           "Valid full commit SHA (release 404s, should fall back to commits)",
+			name:           "Valid full commit SHA (releases and tags 404, should fall back to commits)",
 			repo:           "test/repo",
 			gitRef:         "abcdef1234567890abcdef1234567890abcdef12",
 			expectedStatus: http.StatusOK,
 			expectedBody:   `{"handler": "commits"}`,
-			use404Releases: true, // Simulate a 404 from ReleasesHandler
+			use404Releases: true,
+			use404Tags:     true,
 		},
 		{
 			name:           "Invalid gitRef format (should still be processed by ReleasesHandler)",
@@ -76,7 +110,8 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 			gitRef:         "not-a-commit-or-tag",
 			expectedStatus: http.StatusOK,
 			expectedBody:   `{"handler": "releases"}`,
-			use404Releases: false, // Should be served from ReleasesHandler
+			use404Releases: false,
+			use404Tags:     false,
 		},
 		{
 			name:           "Missing repo parameter",
@@ -104,10 +139,17 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 				releaseHandler = mockReleasesHandler404
 			}
 
-			// Initialize dependencies with the selected release handler
+			// Mock dependencies based on whether we want a 404 for tags
+			tagsHandler := mockTagsHandler
+			if tt.use404Tags {
+				tagsHandler = mockTagsHandler404
+			}
+
+			// Initialize dependencies with the selected handlers
 			deps := &HandlerDeps{
 				CommitsHandler:  mockCommitsHandler,
 				ReleasesHandler: releaseHandler,
+				TagsHandler:     tagsHandler,
 				cache:           cache,
 				config: cacheConfiguration{
 					SuccessCacheDuration: 24 * time.Hour,
@@ -158,6 +200,7 @@ func TestUnifiedHandlerWithCache(t *testing.T) {
 		deps := &HandlerDeps{
 			CommitsHandler:  mockCommitsHandler,
 			ReleasesHandler: mockReleasesHandler,
+			TagsHandler:     mockTagsHandler,
 			cache:           cache,
 			config: cacheConfiguration{
 				SuccessCacheDuration: 24 * time.Hour,
@@ -211,6 +254,7 @@ func TestUnifiedHandlerWithMetadataSuffix(t *testing.T) {
 	deps := &HandlerDeps{
 		CommitsHandler:  mockCommitsHandler,
 		ReleasesHandler: mockReleasesHandler,
+		TagsHandler:     mockTagsHandler,
 		cache:           cache,
 		config: cacheConfiguration{
 			SuccessCacheDuration: 24 * time.Hour,
@@ -254,6 +298,110 @@ func TestUnifiedHandlerWithMetadataSuffix(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr2.Code)
 	assert.Equal(t, `{"handler": "releases"}`, rr2.Body.String())
 	assert.Equal(t, string(cachedData.Body), rr2.Body.String(), "Different metadata suffixes should share cache")
+}
+
+// TestUnifiedHandlerTagFallback verifies that the handler correctly falls back from releases to tags to commits
+func TestUnifiedHandlerTagFallback(t *testing.T) {
+	cache, err := lru.NewWithEvict[string, CachedResponse](10, onEvict)
+	assert.NoError(t, err, "Failed to initialize cache")
+
+	tests := []struct {
+		name           string
+		gitRef         string
+		expectedBody   string
+		expectedStatus int
+		description    string
+	}{
+		{
+			name:           "Release exists - serve from releases",
+			gitRef:         "v1.0.0-release",
+			expectedBody:   `{"handler": "releases"}`,
+			expectedStatus: http.StatusOK,
+			description:    "Should be served from ReleasesHandler",
+		},
+		{
+			name:           "Release 404, tag exists - serve from tags",
+			gitRef:         "v1.0.0-tag",
+			expectedBody:   `{"handler": "tags"}`,
+			expectedStatus: http.StatusOK,
+			description:    "Should fall back to TagsHandler",
+		},
+		{
+			name:           "Release and tag 404, commit exists - serve from commits",
+			gitRef:         "abc123commit",
+			expectedBody:   `{"handler": "commits"}`,
+			expectedStatus: http.StatusOK,
+			description:    "Should fall back to CommitsHandler",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Custom release handler that only succeeds for "-release" suffix
+			releaseHandler := func(w http.ResponseWriter, r *http.Request) {
+				gitRef := r.URL.Query().Get("gitRef")
+				if len(gitRef) > 8 && gitRef[len(gitRef)-8:] == "-release" {
+					w.WriteHeader(http.StatusOK)
+					if _, err := fmt.Fprint(w, `{"handler": "releases"}`); err != nil {
+						log.Printf("Error writing response: %v", err)
+					}
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+					if _, err := fmt.Fprint(w, `Not Found`); err != nil {
+						log.Printf("Error writing response: %v", err)
+					}
+				}
+			}
+
+			// Custom tags handler that only succeeds for "-tag" suffix
+			tagsHandler := func(w http.ResponseWriter, r *http.Request) {
+				gitRef := r.URL.Query().Get("gitRef")
+				if len(gitRef) > 4 && gitRef[len(gitRef)-4:] == "-tag" {
+					w.WriteHeader(http.StatusOK)
+					if _, err := fmt.Fprint(w, `{"handler": "tags"}`); err != nil {
+						log.Printf("Error writing response: %v", err)
+					}
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+					if _, err := fmt.Fprint(w, `Not Found`); err != nil {
+						log.Printf("Error writing response: %v", err)
+					}
+				}
+			}
+
+			// Custom commits handler that only succeeds for "commit" substring
+			commitsHandler := func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				if _, err := fmt.Fprint(w, `{"handler": "commits"}`); err != nil {
+					log.Printf("Error writing response: %v", err)
+				}
+			}
+
+			deps := &HandlerDeps{
+				CommitsHandler:  commitsHandler,
+				ReleasesHandler: releaseHandler,
+				TagsHandler:     tagsHandler,
+				cache:           cache,
+				config: cacheConfiguration{
+					SuccessCacheDuration: 24 * time.Hour,
+					ErrorCacheDuration:   1 * time.Hour,
+				},
+			}
+
+			req := httptest.NewRequest("GET", "/api/references", nil)
+			q := req.URL.Query()
+			q.Add("repo", "test/repo")
+			q.Add("gitRef", tt.gitRef)
+			req.URL.RawQuery = q.Encode()
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(deps.UnifiedHandler)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code, tt.description)
+			assert.Equal(t, tt.expectedBody, rr.Body.String(), tt.description)
+		})
+	}
 }
 
 // TestCacheConfigurationEnvVars verifies that cache durations are correctly parsed from environment variables.
