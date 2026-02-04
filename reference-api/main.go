@@ -18,11 +18,11 @@ func onEvict(key string, value CachedResponse) {
 
 func main() {
 	cacheSize := 1000
-	if cs := os.Getenv("CacheSize"); cs != "" {
+	if cs := os.Getenv("CACHE_SIZE"); cs != "" {
 		if parsedSize, err := strconv.Atoi(cs); err == nil {
 			cacheSize = parsedSize
 		} else {
-			log.Printf("Invalid CacheSize value: %s, using default: %d", cs, cacheSize)
+			log.Printf("Invalid CACHE_SIZE value: %s, using default: %d", cs, cacheSize)
 		}
 	}
 
