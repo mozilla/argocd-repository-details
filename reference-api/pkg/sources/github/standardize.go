@@ -45,3 +45,50 @@ func StandardizeRelease(release *github.RepositoryRelease) *StandardizedEntity {
 		PublishedAt: release.PublishedAt.String(),
 	}
 }
+
+// StandardizeTag converts a Tag and its associated Commit into a StandardizedEntity
+func StandardizeTag(tag *github.RepositoryTag, commit *github.RepositoryCommit) *StandardizedEntity {
+	if tag == nil {
+		return nil
+	}
+
+	// If we have the commit details, use them for richer information
+	if commit != nil && commit.Commit != nil {
+		author := ""
+		if commit.Author != nil && commit.Author.Login != nil {
+			author = *commit.Author.Login
+		}
+
+		message := ""
+		if commit.Commit.Message != nil {
+			message = *commit.Commit.Message
+		}
+
+		publishedAt := ""
+		if commit.Commit.Author != nil && commit.Commit.Author.Date != nil {
+			publishedAt = commit.Commit.Author.Date.String()
+		}
+
+		url := ""
+		if commit.HTMLURL != nil {
+			url = *commit.HTMLURL
+		}
+
+		return &StandardizedEntity{
+			Ref:         *tag.Name,
+			URL:         url,
+			Message:     message,
+			Author:      author,
+			PublishedAt: publishedAt,
+		}
+	}
+
+	// Fallback to basic tag info if commit details are unavailable
+	return &StandardizedEntity{
+		Ref:         *tag.Name,
+		URL:         "",
+		Message:     "",
+		Author:      "",
+		PublishedAt: "",
+	}
+}

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/mozilla/argocd-repository-details/reference-api/sources/github"
+	"github.com/mozilla/argocd-repository-details/reference-api/pkg/sources/github"
 )
 
 func onEvict(key string, value CachedResponse) {
@@ -18,11 +18,11 @@ func onEvict(key string, value CachedResponse) {
 
 func main() {
 	cacheSize := 1000
-	if cs := os.Getenv("CacheSize"); cs != "" {
+	if cs := os.Getenv("CACHE_SIZE"); cs != "" {
 		if parsedSize, err := strconv.Atoi(cs); err == nil {
 			cacheSize = parsedSize
 		} else {
-			log.Printf("Invalid CacheSize value: %s, using default: %d", cs, cacheSize)
+			log.Printf("Invalid CACHE_SIZE value: %s, using default: %d", cs, cacheSize)
 		}
 	}
 
@@ -63,6 +63,7 @@ func main() {
 	deps := &HandlerDeps{
 		CommitsHandler:  github.CommitsHandler,
 		ReleasesHandler: github.ReleasesHandler,
+		TagsHandler:     github.TagsHandler,
 		cache:           cache,
 		config:          cacheConfig,
 	}

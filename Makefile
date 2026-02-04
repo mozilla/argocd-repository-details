@@ -78,7 +78,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes.
 ##@ Test
 .PHONY: test
 test: ## Run go tests
-	cd reference-api && go test .
+	cd reference-api && go test ./...
 
 
 ##@ Build
@@ -122,7 +122,7 @@ GORELEASER ?= $(LOCALBIN)/goreleaser-$(GORELEASER_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
-GOLANGCI_LINT_VERSION ?= v1.57.2
+GOLANGCI_LINT_VERSION ?= v2.6.2
 GORELEASER_VERSION ?= v2.3.2
 
 .PHONY: kustomize
@@ -133,7 +133,7 @@ $(KUSTOMIZE): $(LOCALBIN)
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/v2/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
 
 .PHONY: goreleaser
 goreleaser: $(GORELEASER) ## Download goreleaser locally if necessary.

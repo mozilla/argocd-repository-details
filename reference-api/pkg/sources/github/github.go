@@ -120,3 +120,54 @@ func NewGithubClient(repo string) *github.Client {
 	return client.WithAuthToken(authToken)
 
 }
+
+// FetchLatestReference fetches the most recent reference (release or tag) by comparing dates
+// Returns the latest as a StandardizedEntity, preferring releases over tags when dates are equal
+func FetchLatestReference(repo string) *StandardizedEntity {
+	owner, repoName, _ := strings.Cut(repo, "/")
+	client := NewGithubClient(repo)
+	ctx := context.Background()
+
+	// Fetch latest release
+	var latestRelease *github.RepositoryRelease
+	releases, _, err := client.Repositories.ListReleases(ctx, owner, repoName, nil)
+	if err == nil && len(releases) > 0 {
+		latestRelease = releases[0]
+	}
+
+	// Fetch latest tag
+	var latestTag *github.RepositoryTag
+	var latestTagCommit *github.RepositoryCommit
+	tags, _, err := client.Repositories.ListTags(ctx, owner, repoName, nil)
+	if err == nil && len(tags) > 0 {
+		latestTag = tags[0]
+		// Fetch commit for the tag to get date
+		if latestTag.Commit != nil && latestTag.Commit.SHA != nil {
+			commit, _, err := client.Repositories.GetCommit(ctx, owner, repoName, *latestTag.Commit.SHA, nil)
+			if err == nil {
+				latestTagCommit = commit
+			}
+		}
+	}
+
+	// Compare dates and return the most recent
+	if latestRelease != nil && latestTagCommit != nil {
+		releaseTime := latestRelease.PublishedAt.Time
+		tagTime := latestTagCommit.Commit.Author.Date.Time
+
+		if releaseTime.After(tagTime) {
+			return StandardizeRelease(latestRelease)
+		}
+		return StandardizeTag(latestTag, latestTagCommit)
+	}
+
+	// Return whichever is available
+	if latestRelease != nil {
+		return StandardizeRelease(latestRelease)
+	}
+	if latestTag != nil {
+		return StandardizeTag(latestTag, latestTagCommit)
+	}
+
+	return nil
+}
