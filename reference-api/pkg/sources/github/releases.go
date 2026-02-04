@@ -38,30 +38,22 @@ func FetchReleases(repo, gitRef string) (*StandardizedOutput, error) {
 		return nil, fmt.Errorf("GitHub API error: %v", err)
 	}
 
-	var latestRelease *github.RepositoryRelease
 	var matchingRelease *github.RepositoryRelease
 
-	// Iterate through releases to find the latest and the matching release
+	// Find the release matching the gitRef
 	for _, release := range releases {
 		release := release
-		// Identify the latest release (first in the list, assuming GitHub returns them in descending order)
-		if latestRelease == nil {
-			latestRelease = release
-		}
-
-		// Identify the release matching the gitRef
 		if *release.TagName == gitRef {
 			matchingRelease = release
-		}
-
-		// If both latest and matching releases are found, exit the loop early
-		if latestRelease != nil && matchingRelease != nil {
 			break
 		}
 	}
 
+	// Use unified latest that checks both releases and tags
+	latest := FetchLatestReference(repo)
+
 	return &StandardizedOutput{
-		Latest:  StandardizeRelease(latestRelease),
+		Latest:  latest,
 		Current: StandardizeRelease(matchingRelease),
 	}, nil
 }
