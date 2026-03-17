@@ -1,15 +1,16 @@
-function parseImageRepository(infoArray) {
+function parseImageRepositories(infoArray) {
   try {
-    // Find the object with the name "Image Repository"
-    const imageRepoEntry = infoArray.find((item) => item.name === "Image Repository");
-    if (imageRepoEntry && imageRepoEntry.value) {
-      // Extract the part before the colon
-      return imageRepoEntry.value.split(":")[0] || null;
-    }
+    // Format: '"<alias>" Image Repository' (one entry per image)
+    return infoArray
+      .filter((item) => /^"[^"]+" Image Repository$/.test(item.name))
+      .map((entry) => ({
+        alias: entry.name.match(/^"([^"]+)" Image Repository$/)[1],
+        imageRepository: entry.value?.split(":")[0] || null,
+      }));
   } catch (err) {
     console.error("Error parsing info array for Image Repository:", err);
   }
-  return null; // Return null if parsing fails or value is not found
+  return [];
 }
 
 
@@ -51,20 +52,15 @@ function findMatchingImage(images, repoName) {
 
 
 export function getAppDetails(images, info) {
-  // Extract the application repository
   const appRepository = parseAppRepository(info);
 
-  console.info(appRepository)
+  const imageEntries = parseImageRepositories(info).map(({ alias, imageRepository }) => ({
+    alias,
+    imageTag: findMatchingImage(images, imageRepository),
+  }));
 
-  // Extract the image repository
-  const imageRepository = parseImageRepository(info);
-
-  // Find the matching image
-  const imageTag = findMatchingImage(images, imageRepository);
-
-  // Return both values as an object
   return {
     appRepository,
-    imageTag,
+    imageEntries,
   };
 }
