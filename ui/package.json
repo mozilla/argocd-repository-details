@@ -28,7 +28,8 @@
   },
   "scripts": {
     "start": "webpack --config ./webpack.config.js --watch",
-    "build": "webpack --config ./webpack.config.js && tar -C dist -cvf extension.tar resources"
+    "build": "webpack --config ./webpack.config.js && tar -C dist -cvf extension.tar resources",
+    "test": "vitest run"
   },
   "eslintConfig": {
     "extends": [
@@ -60,6 +61,7 @@
     "orval": "7.3.0",
     "ts-loader": "9.5.1",
     "typescript": "^5.7.2",
+    "vitest": "^4.1.0",
     "webpack": "^5.104.1",
     "webpack-bundle-analyzer": "^4.8.0",
     "webpack-cli": "^5.1.4"

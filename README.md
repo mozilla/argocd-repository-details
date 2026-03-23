@@ -10,16 +10,20 @@ Argo CD application and assumes your infrastructure and application repositories
 ## Requirements
 
 The Repository Details extension requires your Argo CD Applications to have an Info block with
-the application repository and image repository set. This should match a specific image deployed by your Argo CD
-Application that you would like to track.
+the application repository and one or more image repositories set. Each image is tracked separately
+using an alias in the entry name.
 ex.
 ```
     info:
-      - name: 'Image Repository'
-        value: 'us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details'
       - name: 'Application Repository'
         value: 'mozilla/application-repository-details'
+      - name: '"myapp" Image Repository'
+        value: 'us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-repository-details'
+      - name: '"worker" Image Repository'
+        value: 'us-west1-docker.pkg.dev/moz-fx-platform-artifacts/platform-shared-images/argocd-worker'
 ```
+
+The entry name format is `'"<alias>" Image Repository'` — the alias is quoted and prefixed before `Image Repository`. Multiple images can be tracked by adding multiple entries with different aliases.
 
 It currently only supports GitHub releases and Commits as information sources.
 
