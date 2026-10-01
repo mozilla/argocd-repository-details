@@ -19,6 +19,7 @@ const config = {
   externals: {
     react: "React",
     "react-dom": "ReactDOM",
+    "react/jsx-runtime": "ReactJSXRuntime",
     moment: "Moment",
   },
   optimization: {
